@@ -3,6 +3,19 @@
 (function () {
 const A = window.A = {};
 
+/* ---------- version ---------- */
+A.VERSION = '1.1.0';
+A.CHANGELOG = [
+  { v: '1.1.0', date: '2026-09-30', items: [
+    'La Balle & le Trou v2 : la balle se déplace dans les 4 directions et le trou change de place à chaque niveau',
+    '5 nouveaux modules : Fair Value, P&L Express, Carnet d’ordres, Stroop Marché, Code Breaker',
+    '52 nouveaux brainteasers (107 au total)',
+    'Sprint Calcul : notation plus juste · Switch : notation plus exigeante (erreur −2)',
+    'Numéro de version affiché et notes de mise à jour'
+  ] },
+  { v: '1.0.0', date: '2026-09-27', items: ['Première version : 11 modules, séance du jour, indice Alpha, tableau de bord'] }
+];
+
 /* ---------- utilitaires ---------- */
 A.rand = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 A.pick = arr => arr[Math.floor(Math.random() * arr.length)];
@@ -111,7 +124,9 @@ A.market = () => {
   for (const s of sorted) {
     const g = A.games[s.g];
     if (!g || s.perf == null) continue;
-    r[g.cat] += A.ALPHA_K * (s.perf - r[g.cat]);
+    // perf recalculée avec le barème actuel : un changement de notation s'applique à tout l'historique
+    const perf = A.clamp(g.perf(s.score, s.v, s), 0, 100);
+    r[g.cat] += A.ALPHA_K * (perf - r[g.cat]);
     ticks.push({ t: s.t, day: s.day, idx: composite(), cats: Object.assign({}, r), s });
   }
   // bougies journalières : O = clôture veille, H/L = extrêmes intrajournaliers, C = dernier tick
@@ -181,6 +196,18 @@ A.tap = (el, fn) => {
     fn(e);
   });
 };
+
+// Saisie numérique avec virgule et signe (état interne : '-12.5')
+A.editNum = (s, k, max = 9) => {
+  if (k === '⌫') return s.slice(0, -1);
+  if (k === 'C') return '';
+  if (k === '-') return s.startsWith('-') ? s.slice(1) : '-' + s;
+  if (k === ',') return s.includes('.') ? s : s.replace('-', '') === '' ? s + '0.' : s + '.';
+  return s.replace(/[-.]/g, '').length < max ? s + k : s;
+};
+A.showNum = s => s.replace('.', ',').replace('-', '−');
+// juste à ±0,005 près (accepte l'arrondi au centime dans les deux sens)
+A.numOk = (s, ans, tol = 0.0051) => s !== '' && s !== '-' && !s.endsWith('.') && Math.abs(+s - ans) <= tol;
 
 // Pavé numérique maison (évite le clavier iOS)
 A.keypad = ({ onKey, left = 'C', actions = [] }) => {

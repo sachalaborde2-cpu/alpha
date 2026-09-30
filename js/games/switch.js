@@ -8,10 +8,10 @@ A.register({
   id: 'switch', cat: 'viva', code: 'SWITCH', name: 'Switch',
   short: 'Change de règle sans perdre de vitesse',
   desc: 'Un chiffre s’affiche dans un cadre. Cadre AMBRE : pair ou impair ? Cadre BLEU : plus grand ou plus petit que 5 ? La règle change sans prévenir.',
-  rules: ['AMBRE → gauche = IMPAIR · droite = PAIR', 'BLEU → gauche = < 5 · droite = > 5', 'Le coût de switch = temps perdu quand la règle change'],
+  rules: ['AMBRE → gauche = IMPAIR · droite = PAIR', 'BLEU → gauche = < 5 · droite = > 5', 'Bonne réponse +1, erreur −2 : la précision compte autant que la vitesse', 'Le coût de switch = temps perdu quand la règle change'],
   variants: [{ id: '60', label: '1 min', time: 60 }, { id: '90', label: '1 min 30', time: 90 }],
   def: '60', unit: 'points nets',
-  perf: (s, v) => s / (v === '90' ? 60 : 40) * 100,
+  perf: (s, v) => s / (v === '90' ? 120 : 80) * 100,
   start(ctx) {
     let good = 0, bad = 0, rule = Math.random() < 0.5 ? 'par' : 'niv', prev = null, n, t0 = 0, busy = false;
     const rt = { rep: [], sw: [] };
@@ -40,7 +40,7 @@ A.register({
       if (ok) { good++; (prev === rule ? rt.rep : rt.sw).push(t); ctx.sfx('ok'); }
       else { bad++; ctx.flash(false); ctx.sfx('bad'); }
       card.classList.add(ok ? 'ok' : 'ko');
-      ctx.score(good - bad);
+      ctx.score(good - 2 * bad);
       ctx.later(next, ok ? 110 : 450);
     }));
     next();
@@ -49,7 +49,7 @@ A.register({
         const a = A.avg(rt.rep), s = A.avg(rt.sw);
         const cost = a != null && s != null ? s - a : null;
         return {
-          score: good - bad,
+          score: good - 2 * bad,
           stats: [['Justes', good], ['Fausses', bad], ['Précision', good + bad ? A.fmt(good / (good + bad) * 100, 0) + ' %' : '—'],
             ['Réaction (même règle)', a != null ? A.fmt(a, 0) + ' ms' : '—'], ['Réaction (switch)', s != null ? A.fmt(s, 0) + ' ms' : '—'], ['Coût de switch', cost != null ? A.signed(cost, 0, ' ms') : '—']],
           x: { cost, rep: a, sw: s }

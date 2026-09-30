@@ -27,7 +27,9 @@ A.register({
   variants: [{ id: '120', label: '2 min', time: 120 }, { id: '60', label: '1 min', time: 60 }, { id: 'hard', label: 'Hard · 2 min', time: 120 }],
   def: '120', unit: 'bonnes réponses',
   bench: { '120': { v: 40, label: 'REPÈRE 40' } },
-  perf: (s, v) => v === '60' ? s / 30 * 100 : v === 'hard' ? s / 35 * 100 : s / 60 * 100,
+  // courbe concave : progresser compte vite au début, les derniers points sont durs à aller chercher
+  // (2 min : 15 → 46, 25 → 65, 40 → 81, 60 → 92)
+  perf: (s, v) => 100 * (1 - Math.exp(-s / (v === '60' ? 12 : v === 'hard' ? 16 : 24))),
   start(ctx) {
     const hard = ctx.v.id === 'hard';
     ctx.el.innerHTML = `<div class="qbox"><div class="q"></div><div class="ans mono"></div><div class="hint">VALIDATION AUTO</div></div>`;

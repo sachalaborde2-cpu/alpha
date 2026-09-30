@@ -37,11 +37,11 @@ function planFor(day) {
   const pick = arr => arr[Math.floor(rnd() * arr.length)];
   return [
     { g: 'calc', v: '120', slot: 'OUVERTURE' },
-    Object.assign(pick([{ g: 'arb', v: '60' }, { g: 'switch', v: '60' }]), { slot: 'RÉFLEXES' }),
-    Object.assign(pick([{ g: 'seq', v: '180' }, { g: 'riddle', v: '240' }]), { slot: 'LOGIQUE' }),
+    Object.assign(pick([{ g: 'arb', v: '60' }, { g: 'switch', v: '60' }, { g: 'stroop', v: '60' }]), { slot: 'RÉFLEXES' }),
+    Object.assign(pick([{ g: 'seq', v: '180' }, { g: 'riddle', v: '240' }, { g: 'code', v: '180' }]), { slot: 'LOGIQUE' }),
     { g: 'exit', v: '300', slot: 'STRATÉGIE' },
-    Object.assign(pick([{ g: 'nback', v: '3' }, { g: 'span', v: 'spatial' }, { g: 'span', v: 'digits' }]), { slot: 'MÉMOIRE' }),
-    Object.assign(pick([{ g: 'proba', v: '180' }, { g: 'g24', v: '180' }, { g: 'optiver', v: '40' }]), { slot: 'CLÔTURE' })
+    Object.assign(pick([{ g: 'nback', v: '3' }, { g: 'span', v: 'spatial' }, { g: 'span', v: 'digits' }, { g: 'book', v: '180' }]), { slot: 'MÉMOIRE' }),
+    Object.assign(pick([{ g: 'proba', v: '180' }, { g: 'g24', v: '180' }, { g: 'optiver', v: '40' }, { g: 'fair', v: '180' }, { g: 'pnl', v: '180' }]), { slot: 'CLÔTURE' })
   ];
 }
 function daily(day = A.dayKey()) {
@@ -71,7 +71,7 @@ function renderDesk() {
 
   const el = page(`
     <div class="top">
-      <div class="logo"><b>ALPH<i>A</i></b><span>${A.DAYS[now.getDay()]} ${now.getDate()} ${A.MONTHS[now.getMonth()]}</span></div>
+      <div class="logo"><b>ALPH<i>A</i></b><span>${A.DAYS[now.getDay()]} ${now.getDate()} ${A.MONTHS[now.getMonth()]}</span><button class="chip ver" data-go="settings">v${A.VERSION}</button></div>
       <div style="display:flex;gap:8px;align-items:center">
         <span class="chip ${streak ? 'hot' : ''}">▲ ${streak} J</span>
         <button class="icon-btn" data-go="settings">${I.gear}</button>
@@ -488,6 +488,10 @@ function renderStats() {
   const arbRt = ss.filter(s => s.g === 'arb' && s.x && s.x.rt).slice(-5);
   const nbMax = Math.max(0, ...ss.filter(s => s.g === 'nback' && s.x).map(s => Math.max(...s.x.blocks.map(b => b.n))));
   const spG = A.best('span', 'spatial'), spD = A.best('span', 'digits');
+  const stp = ss.filter(s => s.g === 'stroop' && s.x && s.x.cost != null).slice(-5);
+  const bookMax = Math.max(0, ...ss.filter(s => s.g === 'book' && s.x).map(s => s.x.best || 0));
+  const cbS = ss.filter(s => s.g === 'code' && s.x && s.x.att && s.x.att.length).slice(-10);
+  const cbAvg = cbS.length ? A.avg(cbS.flatMap(s => s.x.att)) : null;
 
   const el = page(`
     <div class="label" style="margin-top:6px">Analyse</div>
@@ -530,6 +534,9 @@ function renderStats() {
       <div class="stat"><div class="label">Coût switch</div><div class="v">${sw.length ? A.fmt(A.avg(sw.map(s => s.x.cost)), 0) : '—'}</div><div class="s muted">ms · moy. 5</div></div>
       <div class="stat"><div class="label">Réaction ARB</div><div class="v">${arbRt.length ? A.fmt(A.avg(arbRt.map(s => s.x.rt)), 2) : '—'}</div><div class="s muted">s · moy. 5</div></div>
       <div class="stat"><div class="label">Span</div><div class="v">${spG || '—'} / ${spD || '—'}</div><div class="s muted">grille / chiffres</div></div>
+      <div class="stat"><div class="label">Interférence</div><div class="v">${stp.length ? A.fmt(A.avg(stp.map(s => s.x.cost)), 0) : '—'}</div><div class="s muted">ms · Stroop moy. 5</div></div>
+      <div class="stat"><div class="label">Carnet max</div><div class="v">${bookMax || '—'}</div><div class="s muted">lignes restituées</div></div>
+      <div class="stat"><div class="label">Code Breaker</div><div class="v">${cbAvg != null ? A.fmt(cbAvg, 1) : '—'}</div><div class="s muted">essais / code</div></div>
     </div>
 
     <div class="card">
@@ -583,10 +590,15 @@ function renderSettings() {
       <div style="height:8px"></div>
       <button class="btn ghost small" data-imp>Restaurer</button>
     </div>
+    <div class="label" style="margin:18px 0 8px">Version</div>
+    <div class="card">
+      <div class="card-h"><span style="font-weight:700;font-size:17px">Alpha <span class="amber mono">v${A.VERSION}</span></span><span class="label">${A.CHANGELOG[0].date.split('-').reverse().join('/')}</span></div>
+      ${A.CHANGELOG.map((c, i) => `<div class="label" style="margin:${i ? 14 : 4}px 0 6px">v${c.v} · ${c.date.split('-').reverse().join('/')}</div><ul class="changelog">${c.items.map(x => `<li>${x}</li>`).join('')}</ul>`).join('')}
+    </div>
     <div class="label" style="margin:18px 0 8px">Installation</div>
     <div class="card dim" style="font-size:13px;line-height:1.5">Dans Safari : bouton Partager → « Sur l’écran d’accueil ». L’app s’ouvre alors en plein écran et fonctionne hors connexion.</div>
     <button class="btn ghost small" data-reset style="color:var(--down)">Tout réinitialiser</button>
-    <div class="hint" style="margin:18px 0">ALPHA · ${A.db.sessions.length} PARTIES ENREGISTRÉES</div>
+    <div class="hint" style="margin:18px 0">ALPHA v${A.VERSION} · ${A.db.sessions.length} PARTIES ENREGISTRÉES</div>
   `, false);
   mount(el, false);
   on(el, '[data-back]', () => { tab = 'desk'; renderDesk(); });
@@ -612,7 +624,34 @@ let lastDay = A.dayKey();
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && A.dayKey() !== lastDay) { lastDay = A.dayKey(); if (!document.querySelector('.game')) go(); }
 });
-if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
+// Service worker : quand une nouvelle version prend la main, on recharge (sauf en pleine partie)
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloading) return;
+    const reload = () => { if (!reloading) { reloading = true; location.reload(); } };
+    if (!document.querySelector('.game')) reload();
+    else document.addEventListener('visibilitychange', () => { if (!document.querySelector('.game')) reload(); });
+  });
+  navigator.serviceWorker.register('sw.js').then(r => r.update()).catch(() => {});
+}
+// Nouveautés : affichées une fois après chaque mise à jour
+function whatsNew() {
+  const seen = A.db.seenVersion;
+  A.db.seenVersion = A.VERSION; A.save();
+  if (!seen && !A.db.sessions.length) return; // première installation : rien à annoncer
+  if (seen === A.VERSION) return;
+  const c = A.CHANGELOG[0];
+  const m = A.h(`<div class="modal"><div class="modal-card">
+    <div class="label amber">Mise à jour</div>
+    <div class="modal-title" style="margin-top:4px">Alpha v${c.v}</div>
+    <ul class="changelog" style="margin:8px 0 16px">${c.items.map(x => `<li>${x}</li>`).join('')}</ul>
+    <button class="btn primary">C’est parti</button></div></div>`);
+  m.querySelector('button').addEventListener('click', () => m.remove());
+  document.body.appendChild(m);
+}
 A.ui = { renderDesk, renderModules, renderStats, openIntro, runGame, renderResult, renderClose, renderTeaser, renderSettings };
 renderDesk();
+whatsNew();
 })();

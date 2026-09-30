@@ -1,17 +1,24 @@
-// Cache-first + mise à jour en arrière-plan : l'app marche hors ligne (métro)
-// et récupère la nouvelle version au lancement suivant.
-const CACHE = 'alpha-v1';
+// Cache-first + mise à jour en arrière-plan : l'app marche hors ligne (métro).
+// ⚠️ À chaque nouvelle version : changer VERSION ici ET A.VERSION dans js/core.js.
+// Un nouveau numéro force l'iPhone à retélécharger tous les fichiers.
+const VERSION = '1.1.0';
+const CACHE = 'alpha-' + VERSION;
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'js/core.js', 'js/charts.js', 'js/teasers.js', 'js/app.js',
-  'js/games/calc.js', 'js/games/optiver.js', 'js/games/g24.js', 'js/games/seq.js',
-  'js/games/riddle.js', 'js/games/exit-bank.js', 'js/games/exit.js', 'js/games/nback.js', 'js/games/span.js',
-  'js/games/arb.js', 'js/games/switch.js', 'js/games/proba.js',
+  'js/games/calc.js', 'js/games/optiver.js', 'js/games/g24.js', 'js/games/pnl.js',
+  'js/games/seq.js', 'js/games/riddle.js', 'js/games/exit-bank.js', 'js/games/exit.js', 'js/games/code.js',
+  'js/games/nback.js', 'js/games/span.js', 'js/games/book.js',
+  'js/games/arb.js', 'js/games/switch.js', 'js/games/stroop.js',
+  'js/games/proba.js', 'js/games/fair.js',
   'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'
 ];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
+  // cache: 'reload' contourne le cache HTTP du navigateur pour être sûr d'avoir la nouvelle version
+  e.waitUntil(caches.open(CACHE)
+    .then(c => c.addAll(FILES.map(f => new Request(f, { cache: 'reload' }))))
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', e => {
