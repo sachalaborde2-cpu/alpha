@@ -4,8 +4,14 @@
 const A = window.A = {};
 
 /* ---------- version ---------- */
-A.VERSION = '1.1.0';
+A.VERSION = '1.2.0';
 A.CHANGELOG = [
+  { v: '1.2.0', date: '2026-09-30', items: [
+    'Onglet AMIS : crée ton profil, ajoute tes potes avec leur code ami',
+    'Duel quotidien : tout le monde a les mêmes 6 épreuves, comparez-vous épreuve par épreuve',
+    'Classements : indice Alpha, cotes par catégorie, records par jeu',
+    'Mises à jour automatiques : l’app vérifie les nouvelles versions à chaque retour'
+  ] },
   { v: '1.1.0', date: '2026-09-30', items: [
     'La Balle & le Trou v2 : la balle se déplace dans les 4 directions et le trou change de place à chaque niveau',
     '5 nouveaux modules : Fair Value, P&L Express, Carnet d’ordres, Stroop Marché, Code Breaker',
@@ -229,6 +235,25 @@ A.confirm = (title, msg, ok = 'Confirmer', cancel = 'Annuler') => new Promise(re
   m.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { m.remove(); res(b.dataset.r === '1'); }));
   document.body.appendChild(m);
 });
+
+// Modale avec champ texte
+A.prompt = (title, msg, value = '', ok = 'Valider', max = 16) => new Promise(res => {
+  const m = A.h(`<div class="modal"><div class="modal-card">
+    <div class="modal-title">${title}</div><div class="modal-msg">${msg}</div>
+    <input class="inp" maxlength="${max}" autocomplete="off" autocorrect="off" spellcheck="false">
+    <div class="modal-btns" style="margin-top:14px"><button class="btn ghost" data-r="0">Annuler</button><button class="btn primary" data-r="1">${ok}</button></div>
+  </div></div>`);
+  const inp = m.querySelector('input'); inp.value = value;
+  m.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { m.remove(); res(b.dataset.r === '1' ? inp.value.trim() : null); }));
+  document.body.appendChild(m);
+  setTimeout(() => inp.focus(), 50);
+});
+
+A.ago = t => {
+  if (!t) return 'jamais';
+  const s = (Date.now() - t) / 1000;
+  return s < 60 ? 'à l’instant' : s < 3600 ? `il y a ${Math.floor(s / 60)} min` : s < 86400 ? `il y a ${Math.floor(s / 3600)} h` : `il y a ${Math.floor(s / 86400)} j`;
+};
 
 A.toast = msg => {
   const t = A.h(`<div class="toast">${msg}</div>`);

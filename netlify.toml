@@ -1,0 +1,7 @@
+# Site statique dans public/, API (classement entre amis) dans netlify/functions/.
+[build]
+  publish = "public"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"

@@ -1,11 +1,11 @@
 // Cache-first + mise à jour en arrière-plan : l'app marche hors ligne (métro).
 // ⚠️ À chaque nouvelle version : changer VERSION ici ET A.VERSION dans js/core.js.
 // Un nouveau numéro force l'iPhone à retélécharger tous les fichiers.
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 const CACHE = 'alpha-' + VERSION;
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
-  'js/core.js', 'js/charts.js', 'js/teasers.js', 'js/app.js',
+  'js/core.js', 'js/charts.js', 'js/teasers.js', 'js/social.js', 'js/app.js',
   'js/games/calc.js', 'js/games/optiver.js', 'js/games/g24.js', 'js/games/pnl.js',
   'js/games/seq.js', 'js/games/riddle.js', 'js/games/exit-bank.js', 'js/games/exit.js', 'js/games/code.js',
   'js/games/nback.js', 'js/games/span.js', 'js/games/book.js',

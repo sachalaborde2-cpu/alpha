@@ -5,6 +5,8 @@ const app = document.getElementById('app');
 const I = {
   desk: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 3 8-8"/><path d="M15 7h5v5"/></svg>',
   mods: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="2"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2"/></svg>',
+  rank: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0V4z"/><path d="M17 5h3v2a3 3 0 01-3 3M7 5H4v2a3 3 0 003 3"/></svg>',
+  refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 10-2.3 5.7M20 4v7h-7"/></svg>',
   stats: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 4v16M6 8h-2v6h2M12 6v14M12 9h-2v7h2M18 3v15M18 6h-2v8h2" /></svg>',
   gear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>',
   back: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>',
@@ -21,6 +23,7 @@ function mount(el, withTabs) {
     const nav = A.h(`<nav class="tabbar">
       <button class="tab ${tab === 'desk' ? 'on' : ''}" data-t="desk">${I.desk}DESK</button>
       <button class="tab ${tab === 'mods' ? 'on' : ''}" data-t="mods">${I.mods}MODULES</button>
+      <button class="tab ${tab === 'rank' ? 'on' : ''}" data-t="rank">${I.rank}AMIS</button>
       <button class="tab ${tab === 'stats' ? 'on' : ''}" data-t="stats">${I.stats}STATS</button>
     </nav>`);
     nav.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => { tab = b.dataset.t; go(); }));
@@ -29,7 +32,7 @@ function mount(el, withTabs) {
 }
 const page = (html, withTabs = true) => A.h(`<div class="screen"><div class="scroll${withTabs ? ' with-tabs' : ''}">${html}</div></div>`);
 const on = (root, sel, fn) => root.querySelectorAll(sel).forEach(el => el.addEventListener('click', e => fn(el, e)));
-function go() { ({ desk: renderDesk, mods: renderModules, stats: renderStats })[tab](); }
+function go() { ({ desk: renderDesk, mods: renderModules, rank: renderSocial, stats: renderStats })[tab](); }
 
 /* ---------- séance du jour ---------- */
 function planFor(day) {
@@ -291,6 +294,7 @@ function runGame(gid, vid, opts) {
     if (res.level != null) A.db.levels[(inst && inst.levelKey) || gid] = res.level;
     if (opts.daily != null) { const d = daily(); d.done[opts.daily] = { sid: s.id, perf: s.perf, score: res.score }; }
     A.save();
+    A.social.sync(); // envoi différé du résumé aux amis
     renderResult(g, v, res, s, { before, after: A.market(), prevBest, prev, opts });
   }
 
@@ -573,6 +577,165 @@ function renderStats() {
   on(el, '[data-r]', b => { range = +b.dataset.r; renderStats(); });
 }
 
+/* ---------- AMIS ---------- */
+const onSocial = () => !!app.querySelector('[data-screen=social]');
+function renderJoin() {
+  const S = A.social, invalid = S.state().invalid;
+  const el = page(`<div data-screen="social"></div>
+    <div class="label" style="margin-top:6px">Classement</div>
+    <div class="h-title">Entre amis</div>
+    <div class="h-sub">Crée ton profil et ajoute tes potes : duel sur la séance du jour (vous avez tous les mêmes épreuves), indice Alpha, records par jeu.</div>
+    ${invalid ? '<div class="card expl">Ton ancien profil n’existe plus sur le serveur. Crée-en un nouveau : tes scores sur ce téléphone sont intacts.</div>' : ''}
+    <div class="card">
+      <div class="label" style="margin-bottom:8px">Ton pseudo</div>
+      <input class="inp" maxlength="16" placeholder="ex. Sacha" autocomplete="off" autocorrect="off" spellcheck="false" value="${A.esc(S.state().name || '')}">
+      <div style="height:12px"></div>
+      <button class="btn primary" data-join>Créer mon profil ▸</button>
+    </div>
+    <div class="card dim" style="font-size:13px;line-height:1.5">Ce que tes amis verront : ton pseudo, ton indice, tes cotes, tes records et ta séance du jour. Tout le reste reste sur ton téléphone.</div>
+  `);
+  mount(el, true);
+  const inp = el.querySelector('.inp'), btn = el.querySelector('[data-join]');
+  btn.addEventListener('click', async () => {
+    const name = inp.value.trim();
+    if (name.length < 2) return A.toast(S.ERR.name);
+    btn.disabled = true; btn.textContent = 'Création…';
+    try {
+      if (invalid) delete A.db.social;
+      await S.register(name);
+      A.toast('Profil créé ✓');
+      renderSocial();
+    } catch (e) { A.toast(S.msg(e)); btn.disabled = false; btn.textContent = 'Créer mon profil ▸'; }
+  });
+}
+
+function renderSocial(fetchNow = true) {
+  const S = A.social;
+  if (!S.enabled()) return renderJoin();
+  const me = S.state(), b = me.board, mine = S.summary(), today = A.dayKey();
+  const players = [{ id: me.id, name: me.name, code: me.code, summary: mine, updated: Date.now(), me: true }].concat(b ? b.friends : []);
+  const friends = b ? b.friends : [];
+  const nm = p => `<span class="rk-name">${A.esc(p.name)}${p.me ? ' <span class="muted">· toi</span>' : ''}</span>`;
+
+  // Duel du jour : on aligne les épreuves par jeu/durée (même tirage pour tout le monde)
+  const keys = daily().plan.map(p => p.g + '/' + p.v);
+  const perfOf = (p, i) => {
+    const t = p.summary && p.summary.today;
+    if (!t || t.day !== today) return null;
+    const j = t.plan.indexOf(keys[i]);
+    return j >= 0 && t.done[j] != null ? t.done[j] : null;
+  };
+  const duel = players.map(p => { const v = keys.map((_, i) => perfOf(p, i)); return { p, v, n: v.filter(x => x != null).length, sum: v.reduce((s, x) => s + (x || 0), 0) }; })
+    .filter(r => r.n > 0 || r.p.me).sort((x, y) => y.sum - x.sum);
+  const colBest = keys.map((_, i) => Math.max(-1, ...duel.map(r => r.v[i] == null ? -1 : r.v[i])));
+  const ranked = players.filter(p => p.summary).sort((x, y) => y.summary.idx - x.summary.idx);
+  const catBest = A.CAT_ORDER.map(c => Math.max(...ranked.map(p => p.summary.cats[c] || 0)));
+  const recs = A.GAME_ORDER.map(id => {
+    const h = players.filter(p => p.summary && p.summary.recs && p.summary.recs[id] != null);
+    if (!h.length) return null;
+    return { id, top: h.reduce((x, y) => y.summary.recs[id] > x.summary.recs[id] ? y : x), mine: mine.recs[id] };
+  }).filter(Boolean);
+
+  const el = page(`<div data-screen="social"></div>
+    <div class="label" style="margin-top:6px">Classement</div>
+    <div class="top" style="margin-bottom:12px"><div class="h-title">Entre amis</div>
+      <button class="icon-btn" data-refresh>${I.refresh}</button></div>
+
+    <div class="card">
+      <div class="card-h"><span class="label">Ton code ami</span><button class="chip" data-rename>${A.esc(me.name)} ✎</button></div>
+      <div class="code-big mono">${me.code}</div>
+      <div class="btn-row" style="margin-top:12px"><button class="btn ghost small" data-share>Partager mon code</button></div>
+    </div>
+
+    <div class="card">
+      <div class="label" style="margin-bottom:8px">Ajouter un ami</div>
+      <div class="btn-row"><input class="inp" data-code maxlength="12" placeholder="CODE AMI" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" style="text-transform:uppercase">
+        <button class="btn primary small" data-add style="width:auto;padding:0 18px;height:48px">Ajouter</button></div>
+    </div>
+
+    ${!friends.length ? `<div class="card empty"><b>Pas encore d’amis</b>Partage ton code à tes potes, ou entre le leur au-dessus. Le classement apparaîtra ici.</div>` : `
+    <div class="section"><span class="label">Duel · séance du jour</span><span class="label">perf /100</span></div>
+    <div class="card" style="padding:6px 12px;overflow-x:auto">
+      <table class="tbl duel"><thead><tr><th>Joueur</th>${keys.map(k => `<th>${A.games[k.split('/')[0]].code.slice(0, 4)}</th>`).join('')}<th>Σ</th></tr></thead><tbody>
+      ${duel.map((r, ri) => `<tr class="${r.p.me ? 'me' : ''}"><td><span class="rk-n">${ri + 1}</span>${nm(r.p)}</td>
+        ${r.v.map((x, i) => `<td class="${x != null && x === colBest[i] && duel.length > 1 ? 'amber' : x == null ? 'muted' : ''}">${x == null ? '·' : x}</td>`).join('')}
+        <td><strong>${Math.round(r.sum)}</strong></td></tr>`).join('')}
+      </tbody></table>
+      ${duel.length < 2 ? '<div class="muted" style="font-size:12px;padding:6px 0 4px">Aucun ami n’a encore joué la séance aujourd’hui.</div>' : ''}
+    </div>
+
+    <div class="section"><span class="label">Indice Alpha</span><span class="label">var. 7 j</span></div>
+    <div class="card" style="padding:4px 14px">
+      ${ranked.map((p, i) => {
+        const ch = p.summary.idx7 ? (p.summary.idx - p.summary.idx7) / p.summary.idx7 * 100 : 0;
+        return `<div class="rk-row ${p.me ? 'me' : ''}"><span class="rk-n">${i + 1}</span>
+          <span class="rk-main">${nm(p)}<span class="rk-sub">▲ ${p.summary.streak || 0} j · ${p.summary.games || 0} parties${p.me ? '' : ' · ' + A.ago(p.updated)}</span></span>
+          ${A.chart.spark(p.summary.spark || [], { w: 54, h: 20 })}
+          <span class="rk-v">${A.fmt(p.summary.idx, 1)}<span class="${A.dcls(ch)}">${A.signed(ch, 1, '%')}</span></span></div>`;
+      }).join('')}
+    </div>
+
+    <div class="section"><span class="label">Cotes par catégorie</span><span class="label">meilleure en ambre</span></div>
+    <div class="card" style="padding:6px 12px;overflow-x:auto">
+      <table class="tbl duel"><thead><tr><th>Joueur</th>${A.CAT_ORDER.map(c => `<th>${A.CATS[c].code}</th>`).join('')}</tr></thead><tbody>
+      ${ranked.map(p => `<tr class="${p.me ? 'me' : ''}"><td>${nm(p)}</td>${A.CAT_ORDER.map((c, i) => `<td class="${ranked.length > 1 && p.summary.cats[c] === catBest[i] ? 'amber' : ''}">${A.fmt(p.summary.cats[c] || 0, 0)}</td>`).join('')}</tr>`).join('')}
+      </tbody></table>
+    </div>
+
+    <div class="section"><span class="label">Records</span><span class="label">format standard</span></div>
+    <div class="card" style="padding:6px 12px">
+      <table class="tbl"><thead><tr><th>Jeu</th><th>Leader</th><th>Record</th><th>Toi</th></tr></thead><tbody>
+      ${recs.map(r => { const g = A.games[r.id]; return `<tr><td><b>${g.code}</b></td><td class="rk-lead">${A.esc(r.top.name)}${r.top.me ? ' 👑' : ''}</td><td>${r.top.summary.recs[r.id]}</td><td class="${r.mine == null ? 'muted' : r.mine >= r.top.summary.recs[r.id] ? 'up' : ''}">${r.mine == null ? '—' : r.mine}</td></tr>`; }).join('')}
+      </tbody></table>
+    </div>
+
+    <div class="section"><span class="label">Mes amis · ${friends.length}</span></div>
+    <div class="card" style="padding:4px 14px">
+      ${friends.map(f => `<div class="row"><span><span style="font-weight:600">${A.esc(f.name)}</span> <span class="mono muted" style="font-size:12px">${f.code}</span><div class="muted" style="font-size:12px">actif ${A.ago(f.updated)}${f.summary && f.summary.v ? ' · v' + A.esc(f.summary.v) : ''}</div></span>
+        <button class="icon-btn" data-unfriend="${f.id}" data-name="${A.esc(f.name)}">${I.close}</button></div>`).join('')}
+    </div>`}
+
+    <div class="hint" style="margin:18px 0 8px">${me.boardAt ? 'CLASSEMENT MIS À JOUR ' + A.ago(me.boardAt).toUpperCase() : 'CHARGEMENT…'}</div>
+    <button class="btn ghost small" data-delete style="color:var(--down);margin-bottom:8px">Supprimer mon profil en ligne</button>
+  `);
+  mount(el, true);
+
+  on(el, '[data-refresh]', () => renderSocial(true));
+  on(el, '[data-share]', async () => {
+    const text = S.shareText();
+    try { if (navigator.share) await navigator.share({ text }); else { await navigator.clipboard.writeText(text); A.toast('Message copié ✓'); } }
+    catch (e) { /* partage annulé */ }
+  });
+  on(el, '[data-rename]', async () => {
+    const n = await A.prompt('Changer de pseudo', 'Visible par tes amis (2 à 16 caractères).', me.name);
+    if (n == null) return;
+    if (n.length < 2) return A.toast(S.ERR.name);
+    await S.rename(n); renderSocial(false);
+  });
+  const add = async () => {
+    const inp = el.querySelector('[data-code]'), code = inp.value.trim();
+    if (!code) return;
+    try { const j = await S.addFriend(code); A.toast(`✓ ${j.friend.name} ajouté`); renderSocial(false); }
+    catch (e) { A.toast(S.msg(e)); }
+  };
+  on(el, '[data-add]', add);
+  el.querySelector('[data-code]').addEventListener('keydown', e => { if (e.key === 'Enter') add(); });
+  on(el, '[data-unfriend]', async b => {
+    if (!await A.confirm(`Retirer ${b.dataset.name} ?`, 'Vous disparaîtrez de vos classements respectifs.', 'Retirer')) return;
+    try { await S.removeFriend(b.dataset.unfriend); renderSocial(false); } catch (e) { A.toast(S.msg(e)); }
+  });
+  on(el, '[data-delete]', async () => {
+    if (!await A.confirm('Supprimer ton profil en ligne ?', 'Ton pseudo, ton code et tes amis seront effacés du serveur. Tes scores restent sur ton téléphone.', 'Supprimer')) return;
+    try { await S.deleteProfile(); A.toast('Profil supprimé'); renderSocial(); } catch (e) { A.toast(S.msg(e)); }
+  });
+
+  if (fetchNow) {
+    S.sync(true).then(() => S.board())
+      .then(() => { if (onSocial()) renderSocial(false); })
+      .catch(e => { if (onSocial()) { if (e.code === 'auth') { S.state().invalid = true; A.save(); renderSocial(false); } else A.toast(S.msg(e)); } });
+  }
+}
+
 /* ---------- RÉGLAGES ---------- */
 function renderSettings() {
   const el = page(`
@@ -622,7 +785,9 @@ function renderSettings() {
 /* ---------- démarrage ---------- */
 let lastDay = A.dayKey();
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && A.dayKey() !== lastDay) { lastDay = A.dayKey(); if (!document.querySelector('.game')) go(); }
+  if (document.hidden) return;
+  if (A.dayKey() !== lastDay) { lastDay = A.dayKey(); if (!document.querySelector('.game')) go(); }
+  if (A.social.state().dirty) A.social.sync(true); // rattrape les envois ratés hors ligne
 });
 // Service worker : quand une nouvelle version prend la main, on recharge (sauf en pleine partie)
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
@@ -634,7 +799,11 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     if (!document.querySelector('.game')) reload();
     else document.addEventListener('visibilitychange', () => { if (!document.querySelector('.game')) reload(); });
   });
-  navigator.serviceWorker.register('sw.js').then(r => r.update()).catch(() => {});
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    reg.update();
+    // iOS reprend souvent l'app sans la relancer : on revérifie à chaque retour dessus
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update().catch(() => {}); });
+  }).catch(() => {});
 }
 // Nouveautés : affichées une fois après chaque mise à jour
 function whatsNew() {
@@ -651,7 +820,8 @@ function whatsNew() {
   m.querySelector('button').addEventListener('click', () => m.remove());
   document.body.appendChild(m);
 }
-A.ui = { renderDesk, renderModules, renderStats, openIntro, runGame, renderResult, renderClose, renderTeaser, renderSettings };
+A.ui = { renderDesk, renderModules, renderStats, renderSocial, openIntro, runGame, renderResult, renderClose, renderTeaser, renderSettings };
 renderDesk();
 whatsNew();
+if (A.social.enabled()) A.social.sync(true);
 })();
