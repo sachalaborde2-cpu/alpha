@@ -1,0 +1,52 @@
+<!doctype html>
+<!-- Harnais de capture pour tools/shot.sh : charge l'app dans une iframe iPhone et ouvre l'écran demandé. -->
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000}iframe{border:0;width:390px;height:844px;display:block}</style></head>
+<body><iframe id="f" src="../public/index.html"></iframe>
+<script type="module">
+import { handle } from '../netlify/lib/alpha-api.mjs';
+const q = new URLSearchParams(location.search), f = document.getElementById('f');
+const mem = new Map();
+const store = { async get(k, o) { const v = mem.get(k); return v == null ? null : o && o.type === 'json' ? JSON.parse(v) : v; }, async setJSON(k, v) { mem.set(k, JSON.stringify(v)); }, async delete(k) { mem.delete(k); } };
+const api = async (a, body) => (await handle(new Request('http://x/api/' + a, { method: 'POST', body: JSON.stringify(body) }), store)).json();
+
+f.onload = async () => {
+  const W = f.contentWindow, A = W.A, U = A.ui, now = Date.now();
+  W.fetch = async (url, opts) => handle(new Request(new URL(url, 'http://x'), opts), store);
+  const st = W.setTimeout; W.setTimeout = (fn, ms) => st(fn, (ms || 0) / 10); // compte à rebours accéléré
+  A.resetDb(); A.db.seenVersion = A.VERSION;
+  if (q.get('seed')) {
+    for (let d = 24; d >= 0; d--) {
+      if (d % 5 === 3) continue;
+      for (let k = 0; k < 6; k++) {
+        const g = A.games[A.GAME_ORDER[(d * 7 + k * 3) % A.GAME_ORDER.length]];
+        const perf = Math.min(100, Math.max(5, 35 + (24 - d) * 1.3 + ((d * 13 + k * 7) % 30 - 15)));
+        A.db.sessions.push({ id: 's' + d + k, g: g.id, v: g.def, score: Math.round(perf / 2), perf, dur: 150, t: now - d * 864e5 + k * 6e4, day: A.dayKey(new Date(now - d * 864e5)),
+          x: g.id === 'calc' ? { lat: [1.1, 1.4, 2.2, 1.9] } : g.id === 'switch' || g.id === 'stroop' ? { cost: 180 } : g.id === 'nback' ? { blocks: [{ n: 3, acc: .8 }] } : null });
+      }
+    }
+  }
+  A.save();
+  U.renderDesk(); // crée la séance du jour
+  if (q.get('social')) {
+    await A.social.register('Sacha');
+    const plan = A.db.daily[A.dayKey()].plan.map(p => p.g + '/' + p.v);
+    A.db.daily[A.dayKey()].done = { 0: { perf: 71 }, 1: { perf: 64 } }; A.save();
+    for (const [name, idx, done, streak] of [['Tom', 642.5, { 0: 80, 1: 52, 2: 66 }, 4], ['Léa', 588.1, { 0: 69 }, 9]]) {
+      const u = await api('register', { name });
+      await api('sync', { id: u.id, token: u.token, summary: { v: A.VERSION, idx, idx7: idx - 12, cats: { calc: idx + 20, logi: idx - 30, memo: idx, viva: idx + 5, quant: idx - 10 }, spark: [500, 520, idx], streak, games: 40, recs: { calc: 38 + streak, exit: 60 }, today: { day: A.dayKey(), plan, done } } });
+      await A.social.addFriend(u.code);
+    }
+  }
+  const g = q.get('g'), v = q.get('v') || (g && A.games[g].def);
+  const screens = {
+    desk: () => U.renderDesk(), mods: () => U.renderModules(), rank: () => U.renderSocial(false), stats: () => U.renderStats(),
+    settings: () => U.renderSettings(), close: () => U.renderClose(), teaser: () => U.renderTeaser(q.get('t') || 't01', U.renderDesk),
+    intro: () => U.openIntro(g, { v }), play: () => U.runGame(g, v, {}),
+    result: () => { const before = A.market(), s = A.record({ g, v, score: 42, perf: 70, dur: 120 }); U.renderResult(A.games[g], A.variant(A.games[g], v), { score: 42, stats: [['Exemple', '1,23 s']] }, s, { before, after: A.market(), prevBest: 38, prev: [30, 35, 38], opts: {} }); }
+  };
+  (screens[q.get('a') || 'desk'] || screens.desk)();
+  const tabs = { desk: 'desk', mods: 'mods', rank: 'rank', stats: 'stats' }[q.get('a')];
+  if (tabs) W.document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.t === tabs));
+  if (q.get('y')) st(() => { const sc = W.document.querySelector('.scroll'); if (sc) sc.scrollTop = +q.get('y'); }, 150);
+};
+</script></body></html>

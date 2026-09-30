@@ -1,0 +1,115 @@
+<!doctype html>
+<!-- Banc de test complet, lancé par tools/check.sh (Chrome headless). ?v=1 pour afficher aussi les OK. -->
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../public/css/app.css"></head>
+<body><pre id="out">EN COURS</pre>
+<div id="stage" class="stage" style="width:390px;height:700px;display:flex;flex-direction:column"></div>
+<iframe id="f" style="width:390px;height:844px;border:0"></iframe>
+<script type="module">
+import { handle, cleanCode } from '../netlify/lib/alpha-api.mjs';
+const P = '../public/', QS = new URLSearchParams(location.search), verbose = QS.has('v'), full = QS.has('full');
+const R = [], ok = (c, m) => R.push([!!c, m]);
+const errs = [];
+addEventListener('error', e => errs.push(`${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
+const load = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('chargement ' + src)); document.head.appendChild(s); });
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const down = el => el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, clientX: 10, clientY: 10 }));
+const mockStore = () => { const mem = new Map(); return { mem, async get(k, o) { const v = mem.get(k); return v == null ? null : o && o.type === 'json' ? JSON.parse(v) : v; }, async setJSON(k, v) { mem.set(k, JSON.stringify(v)); }, async delete(k) { mem.delete(k); } }; };
+
+async function main() {
+  // ---------- chargement : même liste de scripts que l'app (sauf app.js)
+  const html = await (await fetch(P + 'index.html')).text();
+  const scripts = [...html.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]);
+  for (const s of scripts.filter(s => !s.endsWith('app.js'))) await load(P + s);
+
+  // ---------- version & cache hors ligne
+  const sw = await (await fetch(P + 'sw.js')).text();
+  const swv = (sw.match(/VERSION = '([^']+)'/) || [])[1];
+  ok(swv === A.VERSION, `version sw.js (${swv}) = core.js (${A.VERSION})`);
+  ok(A.CHANGELOG[0].v === A.VERSION, 'CHANGELOG commence par la version courante');
+  const files = [...sw.matchAll(/'([^']+\.(?:js|css|png|webmanifest|html))'/g)].map(m => m[1]);
+  const missing = scripts.filter(s => !files.includes(s));
+  ok(!missing.length, 'tous les scripts de index.html sont dans le cache du SW' + (missing.length ? ' — MANQUANTS : ' + missing.join(', ') : ''));
+  for (const f of files) if (!(await fetch(P + f, { method: 'HEAD' })).ok) ok(false, 'fichier listé dans sw.js introuvable : ' + f);
+
+  // ---------- contrat des jeux
+  for (const id of A.GAME_ORDER) {
+    const g = A.games[id];
+    ok(g.cat in A.CATS && g.code && g.name && g.short && g.desc && g.rules && g.unit && typeof g.perf === 'function' && typeof g.start === 'function' && g.variants.some(v => v.id === g.def), `contrat du jeu ${id}`);
+    for (const v of g.variants) { const p = g.perf(10, v.id, {}); ok(isFinite(p), `perf finie ${id}/${v.id}`); }
+  }
+
+  // ---------- générateurs
+  let bad = 0;
+  for (let i = 0; i < 200; i++) { const ns = [0, 0, 0, 0].map(() => A.rand(1, 13)), s = A.solve24(ns); if (s && Math.abs(Function('return ' + s.replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-'))() - 24) > 1e-9) bad++; }
+  ok(!bad, '24 : solutions vérifiées');
+  bad = 0; for (let lv = 1; lv <= 4; lv++) for (let i = 0; i < 150; i++) { const p = A._riddle.gen(lv); if (!Number.isInteger(p.ans) || p.ans < 0) bad++; }
+  ok(!bad, 'énigmes : réponses entières ≥ 0');
+  bad = 0; A._fair.GENS.forEach(g => { for (let i = 0; i < 150; i++) { const it = g.f(); if (!isFinite(it.ans) || !A.numOk(String(A.round(it.ans, 2)), it.ans)) bad++; } });
+  ok(!bad, 'Fair Value : réponses valides');
+  bad = 0; A._pnl.GENS.forEach(g => { for (let i = 0; i < 150; i++) { const it = g(); if (Math.abs(A.round(it.ans, 2) - it.ans) > 1e-9) bad++; } });
+  ok(!bad, 'P&L : réponses à 2 décimales max');
+  bad = 0; A._proba.PARAM.forEach(f => { for (let i = 0; i < 150; i++) { const it = f(); if (new Set([it.ans, ...it.ds]).size < 3) bad++; } });
+  ok(!bad, 'Probas : au moins 3 options distinctes');
+  bad = 0; for (let i = 0; i < 1000; i++) {
+    const c = [0, 0, 0, 0].map(() => A.rand(1, 6)), g = [0, 0, 0, 0].map(() => A.rand(1, 6)), f = A._code.feedback(c, g);
+    let ex = 0; const cu = c.slice(), gu = g.slice(); for (let k = 0; k < 4; k++) if (c[k] === g[k]) { ex++; cu[k] = gu[k] = null; }
+    let mi = 0; gu.forEach(d => { if (d == null) return; const j = cu.indexOf(d); if (j >= 0) { mi++; cu[j] = null; } });
+    if (f.exact !== ex || f.mis !== mi) bad++;
+  }
+  ok(!bad, 'Code Breaker : feedback exact');
+  bad = 0; let n = 0;
+  if (full) A.EXIT_BANK.forEach((b, lv) => b.forEach(str => { n++; const p = A._exit.decode(str), r = A._exit.analyze(p.s, p.P, p.hole, 80000), [lo, hi] = A._exit.LEVELS[lv]; if (A._exit.encode(p) !== str || !r || r.dist[0] !== p.opt || p.opt < lo || p.opt > hi) bad++; }));
+  if (full) ok(!bad, `Balle & Trou : ${n} puzzles, optimal vérifié par BFS`);
+  else ok(A.EXIT_BANK.length === 5 && A.EXIT_BANK.every(b => b.length), 'Balle & Trou : banque présente (vérif BFS complète : --full)');
+  ok(new Set(A.TEASERS.map(t => t.id)).size === A.TEASERS.length && A.TEASERS.every(t => Number.isFinite(t.a) && t.q && t.e), `brainteasers : ${A.TEASERS.length}, ids uniques`);
+
+  // ---------- smoke test : chaque jeu / variante démarre, encaisse des taps, se termine
+  const stage = document.getElementById('stage');
+  for (const id of A.GAME_ORDER) for (const v of A.games[id].variants) {
+    const g = A.games[id]; stage.innerHTML = ''; let ended = null, dead = false; const t0 = performance.now();
+    const ctx = { el: stage, v, sfx: () => {}, now: () => performance.now() - t0, later: (fn, ms) => setTimeout(() => { if (!dead) fn(); }, ms / 20), score: () => {}, progress: () => {}, flash: () => {}, toast: () => {}, end: r => { ended = r; } };
+    const before = errs.length;
+    try {
+      const inst = g.start(ctx);
+      for (let k = 0; k < 25; k++) { const b = [...stage.querySelectorAll('button')]; if (b.length) down(A.pick(b)); await wait(10); }
+      await wait(100);
+      const res = ended || inst.finish(); dead = true;
+      ok(typeof res.score === 'number' && isFinite(g.perf(res.score, v.id, res)) && errs.length === before, `smoke ${id}/${v.id}`);
+    } catch (e) { dead = true; ok(false, `smoke ${id}/${v.id} : ${e.message}`); }
+  }
+
+  // ---------- API (logique serveur, store en mémoire)
+  const store = mockStore();
+  const api = async (a, body) => { const r = await handle(new Request('http://x/api/' + a, { method: 'POST', body: JSON.stringify(body) }), store); return { s: r.status, j: await r.json() }; };
+  const u1 = (await api('register', { name: 'Tom<b>' })).j, u2 = (await api('register', { name: 'Léa' })).j;
+  ok(u1.name === 'Tomb' && /^[A-Z2-9]{5}$/.test(u1.code), 'API register + nettoyage');
+  ok((await api('board', { id: u1.id, token: 'x' })).s === 401, 'API mauvais jeton → 401');
+  const fr = await api('friend', { id: u1.id, token: u1.token, code: 'alpha-' + u2.code.toLowerCase() });
+  ok(fr.s === 200 && !JSON.stringify(fr.j).includes('"th"'), 'API ajout ami, aucune fuite de jeton');
+  ok((await api('board', { id: u2.id, token: u2.token })).j.friends.length === 1, 'API amitié réciproque');
+  await api('delete', { id: u2.id, token: u2.token });
+  ok((await api('board', { id: u1.id, token: u1.token })).j.friends.length === 0 && !store.mem.has('code/' + u2.code), 'API suppression profil');
+  ok(cleanCode('alpha-7k3qx') === '7K3QX', 'API cleanCode');
+
+  // ---------- l'app entière : démarrage, tous les écrans, sans erreur
+  const f = document.getElementById('f');
+  await new Promise(r => { f.onload = r; f.src = P + 'index.html'; });
+  const W = f.contentWindow, WE = [];
+  W.addEventListener('error', e => WE.push(`${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
+  W.fetch = async (url, opts) => handle(new Request(new URL(url, 'http://x'), opts), mockStore());
+  const U = W.A.ui, D = W.document;
+  const screens = [['desk', () => U.renderDesk()], ['modules', () => U.renderModules()], ['amis', () => U.renderSocial(false)], ['stats', () => U.renderStats()], ['réglages', () => U.renderSettings()], ['clôture', () => U.renderClose()], ['brainteaser', () => U.renderTeaser('t01', U.renderDesk)]]
+    .concat(W.A.GAME_ORDER.map(id => ['intro ' + id, () => U.openIntro(id, {})]));
+  for (const [name, fn] of screens) { const b = WE.length; try { fn(); await wait(20); ok(WE.length === b && D.querySelector('.screen'), 'écran ' + name); } catch (e) { ok(false, `écran ${name} : ${e.message}`); } }
+  errs.push(...WE);
+
+  // ---------- rapport
+  const ko = R.filter(r => !r[0]);
+  document.getElementById('out').textContent = [
+    ...(verbose ? R : ko).map(([c, m]) => (c ? '✔ ' : '✘ ') + m),
+    ...(errs.length ? ['ERREURS JS : ' + [...new Set(errs)].join(' | ')] : []),
+    `RÉSULTAT : ${R.length - ko.length}/${R.length} OK${ko.length || errs.length ? ' — À CORRIGER' : ''}`
+  ].join('\n');
+}
+main().catch(e => { document.getElementById('out').textContent = 'FATAL ' + e.stack; });
+</script></body></html>

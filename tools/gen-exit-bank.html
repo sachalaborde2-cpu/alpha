@@ -1,0 +1,22 @@
+<!doctype html>
+<!-- Génère la banque de puzzles de la Balle & le Trou (voir tools/gen-exit-bank.sh). -->
+<meta charset="utf-8"><pre id="out"></pre>
+<script src="../public/js/core.js"></script>
+<script src="../public/js/games/exit.js"></script>
+<script>
+const E = A._exit, L = E.LEVELS, CAP = [100, 100, 100, 100, 70], T = performance.now();
+const bank = [[], [], [], [], []], seen = new Set();
+while (performance.now() - T < 240000 && bank.some((b, i) => b.length < CAP[i])) {
+  const b = E.randomBoard(A.rand(9, 15)), r = E.analyze(b.s0, b.P, b.hole, 60000);
+  if (!r) continue;
+  L.forEach(([lo, hi], li) => {
+    if (bank[li].length >= CAP[li]) return;
+    let pick = -1;
+    r.dist.forEach((d, i) => { if (d >= lo && d <= hi && (pick < 0 || d > r.dist[pick])) pick = i; });
+    if (pick < 0) return;
+    const code = E.encode({ s: r.states[pick], P: b.P, hole: b.hole, opt: r.dist[pick] });
+    if (!seen.has(code)) { seen.add(code); bank[li].push(code); }
+  });
+}
+document.getElementById('out').textContent = JSON.stringify(bank);
+</script>

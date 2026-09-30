@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tools/check.sh *)",
+      "Bash(tools/shot.sh *)",
+      "Bash(tools/gen-exit-bank.sh *)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(curl -s https://alpha-sacha.netlify.app/*)",
+      "Bash(python3 -m http.server *)"
+    ]
+  }
+}
