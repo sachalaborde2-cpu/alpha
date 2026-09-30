@@ -36,11 +36,18 @@ f.onload = async () => {
       await api('sync', { id: u.id, token: u.token, summary: { v: A.VERSION, idx, idx7: idx - 12, cats: { calc: idx + 20, logi: idx - 30, memo: idx, viva: idx + 5, quant: idx - 10 }, spark: [500, 520, idx], streak, games: 40, recs: { calc: 38 + streak, exit: 60 }, today: { day: A.dayKey(), plan, done } } });
       await A.social.addFriend(u.code);
     }
+    if (q.get('ch')) {
+      await A.social.board();
+      const c = await A.social.createChallenge('calc', '120', A.social.state().board.friends.map(f => f.id));
+      A.social.submitResult(c.id, 44, 80);
+      const c2 = await A.social.createChallenge('stroop', '60', [A.social.state().board.friends[0].id]);
+      await A.social.board();
+    }
   }
   const g = q.get('g'), v = q.get('v') || (g && A.games[g].def);
   const screens = {
     desk: () => U.renderDesk(), mods: () => U.renderModules(), rank: () => U.renderSocial(false), stats: () => U.renderStats(),
-    settings: () => U.renderSettings(), close: () => U.renderClose(), teaser: () => U.renderTeaser(q.get('t') || 't01', U.renderDesk),
+    settings: () => U.renderSettings(), newch: () => U.renderNewChallenge(), close: () => U.renderClose(), teaser: () => U.renderTeaser(q.get('t') || 't01', U.renderDesk),
     intro: () => U.openIntro(g, { v }), play: () => U.runGame(g, v, {}),
     result: () => { const before = A.market(), s = A.record({ g, v, score: 42, perf: 70, dur: 120 }); U.renderResult(A.games[g], A.variant(A.games[g], v), { score: 42, stats: [['Exemple', '1,23 s']] }, s, { before, after: A.market(), prevBest: 38, prev: [30, 35, 38], opts: {} }); }
   };

@@ -7,6 +7,9 @@
 
 const ALPH = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sans 0/O ni 1/I pour éviter les confusions
 const MAX_FRIENDS = 50;
+const MAX_BACKUP = 3_000_000;     // octets de JSON
+const CH_TTL = 7 * 864e5;         // un défi reste ouvert 7 jours
+const CH_GAMES = ['calc/120', 'calc/60', 'calc/hard', 'optiver/40', 'pnl/180', 'switch/60', 'stroop/60'];
 
 const json = (data, status = 200) => new Response(JSON.stringify(data), {
   status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' }
@@ -21,6 +24,8 @@ export const cleanCode = s => {
   if (c.length > 5 && c.startsWith('ALPHA')) c = c.slice(5);
   return c;
 };
+const newKey = () => Array.from(rnd(12), x => ALPH[x % ALPH.length]).join(''); // clé de récupération (60 bits)
+const cleanKey = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 // Ce que les amis voient (jamais l'empreinte du jeton ni la liste d'amis)
 const pub = u => ({ id: u.id, name: u.name, code: u.code, summary: u.summary || null, updated: u.updated || null });
 
@@ -43,9 +48,61 @@ export async function handle(req, store) {
     return json({ id, code, token, name });
   }
 
-  // Toutes les autres actions sont authentifiées
+  // Restauration sur un nouveau téléphone : code ami + clé de récupération → nouveau jeton
+  if (action === 'restore') {
+    const ref = await store.get('code/' + cleanCode(body.code), { type: 'json' });
+    const u = ref && await getUser(ref.id);
+    if (!u || !u.rkh || u.rkh !== await sha(cleanKey(body.key))) return json({ error: 'recovery' }, 401);
+    const token = hex(rnd(24));
+    u.ths = (u.ths || []).concat(await sha(token)).slice(-5);
+    await store.setJSON('user/' + u.id, u);
+    const bk = await store.get('bk/' + u.id, { type: 'json' });
+    return json({ id: u.id, code: u.code, name: u.name, token, data: bk ? bk.data : null, at: bk ? bk.at : null });
+  }
+
+  // Toutes les autres actions sont authentifiées (jeton d'origine ou jetons de restauration)
   const u = typeof body.id === 'string' && /^[0-9a-f]{24}$/.test(body.id) ? await getUser(body.id) : null;
-  if (!u || u.th !== await sha(String(body.token || ''))) return json({ error: 'auth' }, 401);
+  const th = await sha(String(body.token || ''));
+  if (!u || (u.th !== th && !(u.ths || []).includes(th))) return json({ error: 'auth' }, 401);
+
+  if (action === 'recovery') {
+    const key = newKey();
+    u.rkh = await sha(key);
+    await store.setJSON('user/' + u.id, u);
+    return json({ key });
+  }
+
+  if (action === 'backup') {
+    if (typeof body.data !== 'string' || body.data.length > MAX_BACKUP) return json({ error: 'size' }, 400);
+    const at = Date.now();
+    await store.setJSON('bk/' + u.id, { data: body.data, at });
+    return json({ at });
+  }
+
+  if (action === 'challenge') {
+    const key = String(body.game) + '/' + String(body.v);
+    if (!CH_GAMES.includes(key)) return json({ error: 'game' }, 400);
+    const to = [...new Set((Array.isArray(body.to) ? body.to : []).map(String))].filter(x => u.friends.includes(x)).slice(0, 10);
+    if (!to.length) return json({ error: 'nofriend' }, 400);
+    const players = [u.id, ...to];
+    const names = {};
+    for (const pid of players) { const p = pid === u.id ? u : await getUser(pid); if (p) names[pid] = p.name; }
+    const ch = { id: hex(rnd(8)), from: u.id, players: Object.keys(names), names, game: body.game, v: body.v, seed: new Uint32Array(rnd(4).buffer)[0], created: Date.now() };
+    await store.setJSON('ch/' + ch.id, ch);
+    for (const pid of ch.players) {
+      const list = (await store.get('chl/' + pid, { type: 'json' })) || [];
+      await store.setJSON('chl/' + pid, [ch.id, ...list].slice(0, 20));
+    }
+    return json({ challenge: Object.assign(ch, { results: {} }) });
+  }
+
+  if (action === 'result') {
+    const ch = await store.get('ch/' + String(body.cid), { type: 'json' });
+    if (!ch || !ch.players.includes(u.id)) return json({ error: 'notfound' }, 404);
+    const k = 'chr/' + ch.id + '/' + u.id;
+    if (!(await store.get(k, { type: 'json' }))) await store.setJSON(k, { score: Number(body.score) || 0, perf: Number(body.perf) || 0, at: Date.now() });
+    return json({ ok: true });
+  }
 
   if (action === 'sync') {
     const n = cleanName(body.name);
@@ -82,7 +139,16 @@ export async function handle(req, store) {
 
   if (action === 'board') {
     const friends = (await Promise.all(u.friends.map(getUser))).filter(Boolean);
-    return json({ me: pub(u), friends: friends.map(pub), now: Date.now() });
+    const ids = ((await store.get('chl/' + u.id, { type: 'json' })) || []);
+    const challenges = (await Promise.all(ids.map(async id => {
+      const ch = await store.get('ch/' + id, { type: 'json' });
+      if (!ch || Date.now() - ch.created > CH_TTL * 2) return null;
+      const res = await Promise.all(ch.players.map(pid => store.get('chr/' + ch.id + '/' + pid, { type: 'json' })));
+      ch.results = {}; ch.players.forEach((pid, i) => { if (res[i]) ch.results[pid] = res[i]; });
+      ch.open = Date.now() - ch.created < CH_TTL;
+      return ch;
+    }))).filter(Boolean);
+    return json({ me: pub(u), friends: friends.map(pub), challenges, now: Date.now() });
   }
 
   if (action === 'delete') {
@@ -92,6 +158,8 @@ export async function handle(req, store) {
     }
     await store.delete('code/' + u.code);
     await store.delete('user/' + u.id);
+    await store.delete('bk/' + u.id);
+    await store.delete('chl/' + u.id);
     return json({ ok: true });
   }
 

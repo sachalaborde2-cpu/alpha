@@ -23,7 +23,7 @@ function mount(el, withTabs) {
     const nav = A.h(`<nav class="tabbar">
       <button class="tab ${tab === 'desk' ? 'on' : ''}" data-t="desk">${I.desk}DESK</button>
       <button class="tab ${tab === 'mods' ? 'on' : ''}" data-t="mods">${I.mods}MODULES</button>
-      <button class="tab ${tab === 'rank' ? 'on' : ''}" data-t="rank">${I.rank}AMIS</button>
+      <button class="tab ${tab === 'rank' ? 'on' : ''}" data-t="rank">${I.rank}AMIS${A.social.pending().length ? '<i class="tab-dot"></i>' : ''}</button>
       <button class="tab ${tab === 'stats' ? 'on' : ''}" data-t="stats">${I.stats}STATS</button>
     </nav>`);
     nav.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => { tab = b.dataset.t; go(); }));
@@ -92,6 +92,7 @@ function renderDesk() {
       <div class="desk-spark"></div>
     </div>
 
+    ${A.social.pending().length ? `<button class="card ch-alert" data-go="rank" style="width:100%;text-align:left"><span class="label amber">⚔ Défis en attente</span><div style="font-weight:700;font-size:17px;margin-top:4px">${A.social.pending().length} défi${A.social.pending().length > 1 ? 's' : ''} à relever</div></button>` : ''}
     <div class="card daily">
       <div class="card-h">
         <div><div class="label amber">Séance du jour</div><div style="font-weight:700;font-size:18px;margin-top:4px">${doneN === 6 ? 'Séance bouclée ✓' : doneN ? 'Séance en cours' : 'Prêt pour l’ouverture'}</div></div>
@@ -138,6 +139,7 @@ function renderDesk() {
     if (g === 'daily') openIntro(d.plan[nx].g, { daily: nx });
     if (g === 'close') renderClose();
     if (g === 'settings') renderSettings();
+    if (g === 'rank') { tab = 'rank'; renderSocial(); }
     if (g === 'teaser') renderTeaser(teaser.id, renderDesk);
   });
   on(el, '[data-cat]', () => { tab = 'stats'; go(); });
@@ -174,17 +176,17 @@ function renderModules() {
 /* ---------- INTRO ---------- */
 function openIntro(gid, opts) {
   const g = A.games[gid];
-  const isDaily = opts.daily != null;
-  let vid = isDaily ? daily().plan[opts.daily].v : (opts.v || g.def);
+  const isDaily = opts.daily != null, ch = opts.challenge;
+  let vid = ch ? ch.v : isDaily ? daily().plan[opts.daily].v : (opts.v || g.def);
   const draw = () => {
     const v = A.variant(g, vid), ss = A.sessionsOf(gid, vid);
     const best = A.best(gid, vid), last5 = ss.slice(-5).map(s => s.score);
     const el = page(`
       <button class="back" data-back>${I.back} ${isDaily ? 'DESK' : 'MODULES'}</button>
-      <div class="intro-code">${isDaily ? `ÉPREUVE ${opts.daily + 1}/6 · ${daily().plan[opts.daily].slot}` : `${A.CATS[g.cat].code} · ${g.code}`}</div>
+      <div class="intro-code">${ch ? `⚔ DÉFI · ${ch.players.length} JOUEURS · MÊMES QUESTIONS` : isDaily ? `ÉPREUVE ${opts.daily + 1}/6 · ${daily().plan[opts.daily].slot}` : `${A.CATS[g.cat].code} · ${g.code}`}</div>
       <div class="h-title">${g.name}</div>
       <div class="h-sub">${g.desc}</div>
-      ${!isDaily && g.variants.length > 1 ? `<div class="seg" style="margin-bottom:12px">${g.variants.map(x => `<button data-v="${x.id}" class="${x.id === vid ? 'on' : ''}">${x.label}</button>`).join('')}</div>` : ''}
+      ${!isDaily && !ch && g.variants.length > 1 ? `<div class="seg" style="margin-bottom:12px">${g.variants.map(x => `<button data-v="${x.id}" class="${x.id === vid ? 'on' : ''}">${x.label}</button>`).join('')}</div>` : ''}
       <div class="stats-grid">
         <div class="stat"><div class="label">Record</div><div class="v">${best != null ? best : '—'}</div></div>
         <div class="stat"><div class="label">Moy. 5</div><div class="v">${last5.length ? A.fmt(A.avg(last5), 1) : '—'}</div></div>
@@ -201,7 +203,7 @@ function openIntro(gid, opts) {
       const b = g.bench && g.bench[vid];
       A.chart.line(el.querySelector('.hist'), pts, { h: 140, fmt: v => A.fmt(v, 0), ref: b ? { v: b.v, label: b.label } : null });
     }
-    on(el, '[data-back]', () => isDaily ? renderDesk() : (tab = 'mods', renderModules()));
+    on(el, '[data-back]', () => ch ? (tab = 'rank', renderSocial(false)) : isDaily ? renderDesk() : (tab = 'mods', renderModules()));
     on(el, '[data-v]', b => { vid = b.dataset.v; draw(); });
     on(el, '[data-play]', () => runGame(gid, vid, opts));
   };
@@ -273,8 +275,9 @@ function runGame(gid, vid, opts) {
   };
   const onVis = () => { if (document.hidden) pause(); };
   document.addEventListener('visibilitychange', onVis);
-  const cleanup = () => { ended = true; clearInterval(iv); document.removeEventListener('visibilitychange', onVis); A.wake(false); };
-  const quit = () => { cleanup(); opts.daily != null ? renderDesk() : openIntro(gid, { v: vid }); };
+  let realRandom = null; // défi : Math.random remplacé par un générateur à graine commune
+  const cleanup = () => { if (realRandom) { Math.random = realRandom; realRandom = null; } ended = true; clearInterval(iv); document.removeEventListener('visibilitychange', onVis); A.wake(false); };
+  const quit = () => { cleanup(); opts.challenge ? (tab = 'rank', renderSocial(false)) : opts.daily != null ? renderDesk() : openIntro(gid, { v: vid }); };
   root.querySelector('[data-q]').addEventListener('click', async () => {
     const wasPaused = paused; paused = true;
     if (await A.confirm('Abandonner la partie ?', 'Elle ne sera pas comptée dans ton indice.', 'Abandonner', 'Continuer')) quit();
@@ -294,6 +297,7 @@ function runGame(gid, vid, opts) {
     if (res.level != null) A.db.levels[(inst && inst.levelKey) || gid] = res.level;
     if (opts.daily != null) { const d = daily(); d.done[opts.daily] = { sid: s.id, perf: s.perf, score: res.score }; }
     A.save();
+    if (opts.challenge) A.social.submitResult(opts.challenge.id, res.score, s.perf);
     A.social.sync(); // envoi différé du résumé aux amis
     renderResult(g, v, res, s, { before, after: A.market(), prevBest, prev, opts });
   }
@@ -306,7 +310,11 @@ function runGame(gid, vid, opts) {
     if (ended) return;
     n--;
     if (n > 0) { ov.querySelector('.count').outerHTML = `<div class="count">${n}</div>`; A.sfx('tick'); setTimeout(countdown, 650); }
-    else { ov.remove(); inst = g.start(ctx); running = true; A.wake(true); }
+    else {
+      ov.remove();
+      if (opts.challenge) { realRandom = Math.random; Math.random = A.seeded(opts.challenge.seed); }
+      inst = g.start(ctx); running = true; A.wake(true);
+    }
   };
   setTimeout(countdown, 650);
   requestAnimationFrame(frame);
@@ -352,7 +360,7 @@ function renderResult(g, v, res, s, { before, after, prevBest, prev, opts }) {
   el.appendChild(A.h(`<div class="bottom-cta">
     ${isDaily
       ? (nx >= 0 ? `<button class="btn primary" data-a="next">Épreuve suivante · ${nx + 1}/6 ▸</button>` : `<button class="btn primary" data-a="close">Clôturer la séance ▸</button>`)
-      : `<button class="btn primary" data-a="again">Rejouer ▸</button>`}
+      : opts.challenge ? `<button class="btn primary" data-a="ch">Voir le défi ▸</button>` : `<button class="btn primary" data-a="again">Rejouer ▸</button>`}
     <div class="btn-row" style="margin-top:8px"><button class="btn ghost small" data-a="home">${isDaily ? 'Pause · retour desk' : 'Modules'}</button></div>
   </div>`));
   mount(el, false);
@@ -361,6 +369,7 @@ function renderResult(g, v, res, s, { before, after, prevBest, prev, opts }) {
     if (a === 'next') openIntro(d.plan[nx].g, { daily: nx });
     if (a === 'close') renderClose();
     if (a === 'again') runGame(g.id, v.id, {});
+    if (a === 'ch') { tab = 'rank'; renderSocial(); }
     if (a === 'home') isDaily ? renderDesk() : (tab = 'mods', renderModules());
   });
 }
@@ -592,10 +601,20 @@ function renderJoin() {
       <div style="height:12px"></div>
       <button class="btn primary" data-join>Créer mon profil ▸</button>
     </div>
+    <button class="btn ghost small" data-restore style="margin-bottom:12px">J’ai déjà un profil : restaurer mes données</button>
     <div class="card dim" style="font-size:13px;line-height:1.5">Ce que tes amis verront : ton pseudo, ton indice, tes cotes, tes records et ta séance du jour. Tout le reste reste sur ton téléphone.</div>
   `);
   mount(el, true);
   const inp = el.querySelector('.inp'), btn = el.querySelector('[data-join]');
+  on(el, '[data-restore]', async () => {
+    const code = await A.prompt('Restaurer mon profil', 'Ton code ami (5 caractères).', '', 'Suivant', 12);
+    if (!code) return;
+    const key = await A.prompt('Clé de récupération', 'La clé notée depuis Réglages → Sauvegarde cloud (ex. ABCD-EFGH-JKLM).', '', 'Restaurer', 20);
+    if (!key) return;
+    if (A.db.sessions.length && !await A.confirm('Remplacer les données de ce téléphone ?', 'Elles seront remplacées par ta sauvegarde cloud.', 'Remplacer')) return;
+    try { const j = await S.restore(code, key); A.toast(j.data ? 'Données restaurées ✓' : 'Profil restauré (aucune sauvegarde)'); tab = 'desk'; renderDesk(); }
+    catch (e) { A.toast(S.msg(e)); }
+  });
   btn.addEventListener('click', async () => {
     const name = inp.value.trim();
     if (name.length < 2) return A.toast(S.ERR.name);
@@ -603,8 +622,8 @@ function renderJoin() {
     try {
       if (invalid) delete A.db.social;
       await S.register(name);
-      A.toast('Profil créé ✓');
       renderSocial();
+      S.recoveryKey().then(keyModal).catch(() => {});
     } catch (e) { A.toast(S.msg(e)); btn.disabled = false; btn.textContent = 'Créer mon profil ▸'; }
   });
 }
@@ -653,6 +672,7 @@ function renderSocial(fetchNow = true) {
         <button class="btn primary small" data-add style="width:auto;padding:0 18px;height:48px">Ajouter</button></div>
     </div>
 
+    ${friends.length ? challengesHtml(me) : ''}
     ${!friends.length ? `<div class="card empty"><b>Pas encore d’amis</b>Partage ton code à tes potes, ou entre le leur au-dessus. Le classement apparaîtra ici.</div>` : `
     <div class="section"><span class="label">Duel · séance du jour</span><span class="label">perf /100</span></div>
     <div class="card" style="padding:6px 12px;overflow-x:auto">
@@ -701,6 +721,8 @@ function renderSocial(fetchNow = true) {
   mount(el, true);
 
   on(el, '[data-refresh]', () => renderSocial(true));
+  on(el, '[data-newch]', () => renderNewChallenge());
+  on(el, '[data-play]', b => { const c = S.challenges().find(x => x.id === b.dataset.play); if (c) openIntro(c.game, { challenge: c }); });
   on(el, '[data-share]', async () => {
     const text = S.shareText();
     try { if (navigator.share) await navigator.share({ text }); else { await navigator.clipboard.writeText(text); A.toast('Message copié ✓'); } }
@@ -736,6 +758,70 @@ function renderSocial(fetchNow = true) {
   }
 }
 
+
+/* ---------- DÉFIS ---------- */
+function keyModal(k) {
+  const m = A.h(`<div class="modal"><div class="modal-card">
+    <div class="label amber">Sauvegarde cloud</div>
+    <div class="modal-title" style="margin-top:4px">Ta clé de récupération</div>
+    <div class="code-big mono" style="font-size:24px;letter-spacing:.12em;margin:8px 0">${A.social.fmtKey(k)}</div>
+    <div class="modal-msg">Avec ton code ami <b class="mono">${A.social.state().code}</b>, elle permet de tout récupérer sur un nouveau téléphone. Note-la (dans Notes par ex.). Elle reste visible dans Réglages.</div>
+    <div class="modal-btns"><button class="btn ghost" data-c>Copier</button><button class="btn primary" data-ok>C’est noté</button></div></div></div>`);
+  m.querySelector('[data-c]').addEventListener('click', () => navigator.clipboard.writeText(`Alpha · code ami ${A.social.state().code} · clé ${A.social.fmtKey(k)}`).then(() => A.toast('Copié ✓'), () => {}));
+  m.querySelector('[data-ok]').addEventListener('click', () => m.remove());
+  document.body.appendChild(m);
+}
+
+function challengesHtml(me) {
+  const S = A.social, chs = S.challenges().slice(0, 8), played = me.played || {};
+  return `<div class="section"><span class="label">Défis · mêmes questions</span><span class="label">7 jours</span></div>
+    <button class="btn primary" data-newch style="margin-bottom:10px">⚔ Lancer un défi</button>
+    ${chs.map(c => {
+      const g = A.games[c.game], v = A.variant(g, c.v);
+      const mine = c.results[me.id] || played[c.id];
+      const rows = c.players.map(pid => ({ name: c.names[pid], me: pid === me.id, r: pid === me.id ? mine : c.results[pid] }))
+        .sort((x, y) => (y.r ? y.r.score : -1e9) - (x.r ? x.r.score : -1e9));
+      const done = rows.every(x => x.r);
+      return `<div class="card ch-card ${!mine && c.open ? 'todo' : ''}">
+        <div class="card-h"><span><b class="amber mono">${g.code}</b> <span style="font-weight:600">${g.name}</span> <span class="muted">· ${v.label}</span></span>
+          <span class="label">${done ? 'TERMINÉ' : c.open ? A.ago(c.created) : 'EXPIRÉ'}</span></div>
+        <div class="muted" style="font-size:12px;margin:-4px 0 6px">${c.from === me.id ? 'Lancé par toi' : 'Lancé par ' + A.esc(c.names[c.from] || '?')}</div>
+        ${rows.map((x, i) => `<div class="ch-row ${x.me ? 'me' : ''}"><span class="rk-n">${x.r ? (i === 0 && done && rows.length > 1 ? '👑' : i + 1) : '·'}</span>
+          <span class="rk-name">${A.esc(x.name)}${x.me ? ' <span class="muted">· toi</span>' : ''}</span>
+          <span class="mono ${x.r ? '' : 'muted'}">${x.r ? A.fmt(x.r.score, 0) : 'en attente'}</span></div>`).join('')}
+        ${!mine && c.open ? `<button class="btn primary small" data-play="${c.id}" style="margin-top:10px">Relever le défi ▸</button>` : ''}
+      </div>`;
+    }).join('')}`;
+}
+
+function renderNewChallenge() {
+  const S = A.social, friends = (S.state().board || {}).friends || [];
+  let pick = S.CH_GAMES[0], sel = new Set(friends.map(f => f.id));
+  const draw = () => {
+    const el = page(`
+      <button class="back" data-back>${I.back} AMIS</button>
+      <div class="h-title" style="margin-top:6px">Nouveau défi</div>
+      <div class="h-sub">Tout le monde reçoit exactement les mêmes questions, dans le même ordre. Meilleur score gagne.</div>
+      <div class="label" style="margin-bottom:8px">Épreuve</div>
+      <div class="ch-games">${S.CH_GAMES.map(([gid, vid], i) => { const g = A.games[gid]; return `<button class="ch-g ${pick[0] === gid && pick[1] === vid ? 'on' : ''}" data-i="${i}"><b class="mono">${g.code}</b><span>${g.name}</span><span class="muted">${A.variant(g, vid).label}</span></button>`; }).join('')}</div>
+      <div class="label" style="margin:16px 0 8px">Adversaires</div>
+      <div class="ch-friends">${friends.map(f => `<button class="chip ${sel.has(f.id) ? 'hot' : ''}" data-f="${f.id}">${sel.has(f.id) ? '✓ ' : ''}${A.esc(f.name)}</button>`).join('')}</div>
+      <div style="height:90px"></div>`, false);
+    el.appendChild(A.h(`<div class="bottom-cta"><button class="btn primary" data-go>Défier ${sel.size} ami${sel.size > 1 ? 's' : ''} & jouer ▸</button></div>`));
+    mount(el, false);
+    on(el, '[data-back]', () => renderSocial(false));
+    on(el, '[data-i]', b => { pick = S.CH_GAMES[+b.dataset.i]; draw(); });
+    on(el, '[data-f]', b => { sel.has(b.dataset.f) ? sel.delete(b.dataset.f) : sel.add(b.dataset.f); draw(); });
+    on(el, '[data-go]', async b => {
+      if (!sel.size) return A.toast(S.ERR.nofriend);
+      b.disabled = true; b.textContent = 'Création…';
+      try { const c = await S.createChallenge(pick[0], pick[1], [...sel]); openIntro(c.game, { challenge: c }); }
+      catch (e) { A.toast(S.msg(e)); b.disabled = false; b.textContent = 'Réessayer'; }
+    });
+  };
+  draw();
+}
+
 /* ---------- RÉGLAGES ---------- */
 function renderSettings() {
   const el = page(`
@@ -744,7 +830,14 @@ function renderSettings() {
     <div class="card" style="padding:4px 14px">
       <div class="row"><span>Sons</span><button class="switch ${A.db.settings.sound ? 'on' : ''}" data-snd></button></div>
     </div>
-    <div class="label" style="margin:18px 0 8px">Sauvegarde</div>
+    <div class="label" style="margin:18px 0 8px">Sauvegarde cloud</div>
+    <div class="card">${A.social.enabled() ? `
+      <div class="row" style="padding-top:0"><span>Dernière sauvegarde</span><span class="mono dim" style="font-size:13px">${A.ago(A.social.state().backupAt)}</span></div>
+      <div class="dim" style="font-size:13px;line-height:1.45;margin:4px 0 12px">Automatique après tes parties. Nouveau téléphone : onglet AMIS → « restaurer », avec ton code ami <b class="mono amber">${A.social.state().code}</b> et ta clé de récupération.</div>
+      <div class="btn-row"><button class="btn ghost small" data-bk>Sauvegarder maintenant</button><button class="btn ghost small" data-key>Ma clé</button></div>`
+      : `<div class="dim" style="font-size:13px;line-height:1.45">Crée ton profil dans l’onglet AMIS pour activer la sauvegarde automatique de tes données.</div>`}
+    </div>
+    <div class="label" style="margin:18px 0 8px">Sauvegarde manuelle</div>
     <div class="card">
       <div class="dim" style="font-size:13px;line-height:1.45;margin-bottom:10px">Tes données restent sur ton iPhone. Copie une sauvegarde de temps en temps (dans Notes par exemple).</div>
       <button class="btn ghost small" data-exp>Copier la sauvegarde</button>
@@ -777,6 +870,11 @@ function renderSettings() {
     if (!await A.confirm('Restaurer cette sauvegarde ?', 'Tes données actuelles seront remplacées.', 'Restaurer')) return;
     try { A.importDb(v); A.toast('Sauvegarde restaurée ✓'); tab = 'desk'; renderDesk(); } catch (e) { A.toast('Sauvegarde invalide'); }
   });
+  on(el, '[data-bk]', async b => {
+    b.disabled = true;
+    try { await A.social.backup(true); A.toast('Sauvegardé ✓'); renderSettings(); } catch (e) { A.toast(A.social.msg(e)); b.disabled = false; }
+  });
+  on(el, '[data-key]', () => A.social.recoveryKey().then(keyModal).catch(e => A.toast(A.social.msg(e))));
   on(el, '[data-reset]', async () => {
     if (await A.confirm('Tout réinitialiser ?', 'Historique, records, niveaux et séances seront effacés. Irréversible.', 'Effacer')) { A.resetDb(); tab = 'desk'; renderDesk(); }
   });
@@ -820,7 +918,7 @@ function whatsNew() {
   m.querySelector('button').addEventListener('click', () => m.remove());
   document.body.appendChild(m);
 }
-A.ui = { renderDesk, renderModules, renderStats, renderSocial, openIntro, runGame, renderResult, renderClose, renderTeaser, renderSettings };
+A.ui = { renderNewChallenge, renderDesk, renderModules, renderStats, renderSocial, openIntro, runGame, renderResult, renderClose, renderTeaser, renderSettings };
 renderDesk();
 whatsNew();
 if (A.social.enabled()) A.social.sync(true);

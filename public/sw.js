@@ -1,7 +1,7 @@
 // Cache-first + mise à jour en arrière-plan : l'app marche hors ligne (métro).
 // ⚠️ À chaque nouvelle version : changer VERSION ici ET A.VERSION dans js/core.js.
 // Un nouveau numéro force l'iPhone à retélécharger tous les fichiers.
-const VERSION = '1.2.0';
+const VERSION = '1.3.0';
 const CACHE = 'alpha-' + VERSION;
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',

@@ -4,8 +4,12 @@
 const A = window.A = {};
 
 /* ---------- version ---------- */
-A.VERSION = '1.2.0';
+A.VERSION = '1.3.0';
 A.CHANGELOG = [
+  { v: '1.3.0', date: '2026-09-30', items: [
+    'Défis ⚔ : lance un défi à tes amis, tout le monde reçoit exactement les mêmes questions',
+    'Sauvegarde cloud automatique : récupère tout sur un nouveau téléphone avec ton code ami + ta clé de récupération (Réglages)'
+  ] },
   { v: '1.2.0', date: '2026-09-30', items: [
     'Onglet AMIS : crée ton profil, ajoute tes potes avec leur code ami',
     'Duel quotidien : tout le monde a les mêmes 6 épreuves, comparez-vous épreuve par épreuve',

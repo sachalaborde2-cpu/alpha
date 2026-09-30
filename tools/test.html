@@ -78,6 +78,26 @@ async function main() {
     } catch (e) { dead = true; ok(false, `smoke ${id}/${v.id} : ${e.message}`); }
   }
 
+  // ---------- défis : même graine → mêmes questions (sur plusieurs réponses justes)
+  const trace = async (gid, vid, seed) => {
+    const real = Math.random; Math.random = A.seeded(seed);
+    stage.innerHTML = ''; const g = A.games[gid], v = A.variant(g, vid), out = [];
+    const ctx = { el: stage, v, sfx: () => {}, now: () => 0, later: fn => fn(), score: () => {}, progress: () => {}, flash: () => {}, toast: () => {}, end: () => {} };
+    try {
+      g.start(ctx);
+      for (let k = 0; k < 6; k++) {
+        const q = stage.querySelector('.q, .fv-q, .sw-n, .st-w'); out.push(stage.innerText.replace(/\s+/g, ' ').slice(0, 120));
+        if (gid === 'calc' && q) { const ans = String(Function('return ' + q.textContent.replace('×', '*').replace('÷', '/').replace('−', '-'))()); for (const d of ans) down(stage.querySelector(`[data-k="${d}"]`)); }
+        else { const b = stage.querySelector('.opt, .sw-b'); if (b) down(b); }
+      }
+    } finally { Math.random = real; }
+    return out.join(' | ');
+  };
+  for (const [gid, vid] of A.social.CH_GAMES) {
+    const t1 = await trace(gid, vid, 12345), t2 = await trace(gid, vid, 12345), t3 = await trace(gid, vid, 999);
+    ok(t1 === t2 && t1 !== t3, `défi ${gid}/${vid} : même graine → mêmes questions`);
+  }
+
   // ---------- API (logique serveur, store en mémoire)
   const store = mockStore();
   const api = async (a, body) => { const r = await handle(new Request('http://x/api/' + a, { method: 'POST', body: JSON.stringify(body) }), store); return { s: r.status, j: await r.json() }; };
@@ -90,6 +110,27 @@ async function main() {
   await api('delete', { id: u2.id, token: u2.token });
   ok((await api('board', { id: u1.id, token: u1.token })).j.friends.length === 0 && !store.mem.has('code/' + u2.code), 'API suppression profil');
   ok(cleanCode('alpha-7k3qx') === '7K3QX', 'API cleanCode');
+  // sauvegarde / récupération
+  const u3 = (await api('register', { name: 'Max' })).j, u4 = (await api('register', { name: 'Eva' })).j;
+  ok((await api('backup', { id: u3.id, token: u3.token, data: '{"v":1,"sessions":[1]}' })).s === 200, 'API backup');
+  ok((await api('backup', { id: u3.id, token: u3.token, data: 'x'.repeat(3_000_001) })).s === 400, 'API backup trop gros refusé');
+  const key = (await api('recovery', { id: u3.id, token: u3.token })).j.key;
+  ok(/^[A-Z2-9]{12}$/.test(key), 'API clé de récupération');
+  ok((await api('restore', { code: u3.code, key: 'MAUVAISECLE0' })).s === 401, 'API restore mauvaise clé → 401');
+  const rs = (await api('restore', { code: 'alpha-' + u3.code, key: key.slice(0, 4) + '-' + key.slice(4, 8).toLowerCase() + '-' + key.slice(8) })).j;
+  ok(rs.data === '{"v":1,"sessions":[1]}' && rs.token && rs.token !== u3.token, 'API restore (formats tolérés) → données + nouveau jeton');
+  ok((await api('board', { id: u3.id, token: rs.token })).s === 200 && (await api('board', { id: u3.id, token: u3.token })).s === 200, 'API ancien et nouveau jeton valides');
+  // défis
+  await api('friend', { id: u3.id, token: u3.token, code: u4.code });
+  ok((await api('challenge', { id: u3.id, token: u3.token, game: 'exit', v: '300', to: [u4.id] })).s === 400, 'API défi : jeu non éligible refusé');
+  ok((await api('challenge', { id: u3.id, token: u3.token, game: 'calc', v: '120', to: [u1.id] })).s === 400, 'API défi : non-ami refusé');
+  const ch = (await api('challenge', { id: u3.id, token: u3.token, game: 'calc', v: '120', to: [u4.id] })).j.challenge;
+  ok(ch && ch.players.length === 2 && Number.isInteger(ch.seed), 'API défi créé');
+  await api('result', { id: u4.id, token: u4.token, cid: ch.id, score: 41, perf: 80 });
+  await api('result', { id: u4.id, token: u4.token, cid: ch.id, score: 99, perf: 99 });
+  const b3 = (await api('board', { id: u3.id, token: u3.token })).j;
+  ok(b3.challenges.length === 1 && b3.challenges[0].results[u4.id].score === 41 && b3.challenges[0].open, 'API défi : résultat visible, non modifiable');
+  ok((await api('result', { id: u1.id, token: u1.token, cid: ch.id, score: 5 })).s === 404, 'API défi : non-participant refusé');
 
   // ---------- l'app entière : démarrage, tous les écrans, sans erreur
   const f = document.getElementById('f');

@@ -411,3 +411,17 @@ textarea { width: 100%; min-height: 110px; background: var(--panel2); color: var
 .rk-v { display: flex; flex-direction: column; align-items: flex-end; font-family: var(--mono); font-weight: 700; font-size: 15px; font-variant-numeric: tabular-nums; }
 .rk-v span { font-size: 11px; font-weight: 600; }
 .rk-lead { font-family: var(--sans) !important; font-size: 13px; }
+
+/* ---------- v1.3 : défis & sauvegarde ---------- */
+.tab { position: relative; }
+.tab-dot { position: absolute; top: 2px; right: calc(50% - 16px); width: 8px; height: 8px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 0 2px var(--bg); }
+.ch-alert { border-color: rgba(255, 178, 46, .45); background: var(--amber-dim); font: inherit; color: inherit; }
+.ch-card.todo { border-color: rgba(255, 178, 46, .45); }
+.ch-row { display: grid; grid-template-columns: 24px 1fr auto; align-items: center; gap: 8px; padding: 7px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.ch-row.me .rk-name { color: var(--amber); }
+.ch-games { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ch-g { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 11px 12px; border-radius: 11px; background: var(--panel); border: 1px solid var(--line); text-align: left; font-size: 13px; }
+.ch-g b { color: var(--amber); font-size: 12px; letter-spacing: .08em; }
+.ch-g.on { border-color: var(--amber); background: var(--amber-dim); }
+.ch-friends { display: flex; flex-wrap: wrap; gap: 8px; }
+.ch-friends .chip { font-size: 13px; padding: 8px 12px; }
