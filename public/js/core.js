@@ -4,8 +4,11 @@
 const A = window.A = {};
 
 /* ---------- version ---------- */
-A.VERSION = '1.4.0';
+A.VERSION = '1.4.1';
 A.CHANGELOG = [
+  { v: '1.4.1', date: '2026-10-26', items: [
+    'Indice Alpha : un niveau Facile ou Moyen réussi ne fait plus jamais baisser ta cote ; il la fait monter jusqu’à son plafond (700 en Facile, 900 en Moyen), au-delà il faut jouer le niveau supérieur'
+  ] },
   { v: '1.4.0', date: '2026-10-26', items: [
     'Niveaux Facile / Moyen / Difficile dans presque tous les jeux, Facile par défaut : on s’échauffe, puis on monte',
     'Chaque niveau a sa propre difficulté fixe : plus d’héritage de ta dernière partie (suites, énigmes, Balle & Trou, Order Flow, Span, Carnet d’ordres)',
@@ -144,9 +147,10 @@ A.market = () => {
     const g = A.games[s.g];
     if (!g || s.perf == null) continue;
     // perf recalculée avec le barème actuel : un changement de notation s'applique à tout l'historique
-    // w < 1 : un niveau facile pèse moins dans l'indice (il ne peut pas le tirer au-delà de w × 100)
-    const vr = g.variants.find(x => x.id === s.v);
-    const perf = A.clamp(g.perf(s.score, s.v, s), 0, 100) * ((vr && vr.w) || 1);
+    // niveaux Facile/Moyen (w < 1) : plafond à w × 100, et jamais de baisse tant que la perf reste ≥ 50 (une partie réussie ne fait pas perdre)
+    const vr = g.variants.find(x => x.id === s.v), w = (vr && vr.w) || 1, p = A.clamp(g.perf(s.score, s.v, s), 0, 100);
+    let perf = p * w;
+    if (w < 1 && perf < r[g.cat]) perf = p >= 50 ? r[g.cat] : Math.min(p, r[g.cat]);
     r[g.cat] += A.ALPHA_K * (perf - r[g.cat]);
     ticks.push({ t: s.t, day: s.day, idx: composite(), cats: Object.assign({}, r), s });
   }

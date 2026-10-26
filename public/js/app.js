@@ -356,6 +356,7 @@ function renderResult(g, v, res, s, { before, after, prevBest, prev, opts }) {
       <div class="label" style="margin-bottom:10px">Impact marché</div>
       <div class="imp-row"><span><b class="amber mono">ALPHA</b></span><span class="mono">${A.fmt(before.idx, 1)} → <b>${A.fmt(after.idx, 1)}</b></span><span class="mono ${ich >= 0 ? 'up' : 'down'}">${A.signed(ich, 2, '%')}</span></div>
       <div class="imp-row"><span><b class="amber mono">${A.CATS[cat].code}</b></span><span class="mono">${A.fmt(cb, 1)} → <b>${A.fmt(ca, 1)}</b></span><span class="mono ${ca >= cb ? 'up' : 'down'}">${A.signed((ca - cb) / cb * 100, 2, '%')}</span></div>
+      ${v.w < 1 ? `<div class="muted" style="font-size:12px;margin-top:8px">Niveau ${v.label} : la cote ${A.CATS[cat].code} ne peut pas dépasser ${Math.round(v.w * 1000)} ici et ne baisse pas si tu réussis. Passe au niveau supérieur pour la faire monter.</div>` : ''}
     </div>
 
     ${res.stats && res.stats.length ? `<div class="stats-grid two">${res.stats.map(([k, val]) => `<div class="stat"><div class="label">${k}</div><div class="v" style="font-size:17px">${val}</div></div>`).join('')}</div>` : ''}
