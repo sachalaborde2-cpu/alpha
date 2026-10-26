@@ -100,6 +100,41 @@ async function main() {
 
   // ---------- API (logique serveur, store en mémoire)
   const store = mockStore();
+  // ---------- Parcours : niveaux générés
+  {
+    let badSpec = 0, rep = 0, prevG = null;
+    for (let n = 1; n <= A.run.MAX; n++) {
+      const sp = A.run.spec(n), g = A.games[sp.g];
+      if (!g || !g.variants.some(v => v.id === sp.vid) || !(sp.need[0] >= 1 && sp.need[0] < sp.need[1] && sp.need[1] < sp.need[2] && sp.need[2] < 600) || !(sp.time >= 30)) badSpec++;
+      if (sp.g === prevG) rep++;
+      prevG = sp.g;
+    }
+    ok(!badSpec, `Parcours : ${A.run.MAX} niveaux valides (jeu, variante, objectifs croissants)`);
+    ok(!rep, 'Parcours : jamais deux fois le même jeu de suite');
+    ok(A.run.spec(10).boss && !A.run.spec(11).boss, 'Parcours : un boss tous les 10 niveaux');
+    const db0 = A.db.run; A.db.run = null;
+    const sp1 = A.run.spec(1), r1 = A.run.complete(sp1, 9999), r2 = A.run.complete(A.run.spec(5), 9999);
+    ok(r1.stars === 3 && r1.advanced && A.run.state().lvl === 2 && !r2.advanced, 'Parcours : réussite → niveau suivant, pas de saut');
+    const sp2 = A.run.spec(2); A.run.complete(sp2, 0); A.run.complete(sp2, 0); A.run.complete(sp2, 0);
+    ok(A.run.state().lvl === 2 && A.run.spec(2, 3).need[0] <= sp2.need[0], 'Parcours : échec = on reste, coup de pouce');
+    A.db.run = db0;
+  }
+  // ---------- indice : un niveau Facile/Moyen réussi ne fait jamais baisser la cote, plafond respecté
+  {
+    const bak = A.db.sessions, base = [], d = A.dayKey();
+    for (let i = 0; i < 25; i++) base.push({ id: 'a' + i, g: 'calc', v: '120', score: 60, perf: 90, dur: 120, t: 1000 + i, day: d });
+    A.db.sessions = base;
+    const c0 = A.market().cats.calc;
+    A.db.sessions = base.concat([{ id: 'e1', g: 'calc', v: 'easy', score: 60, perf: 100, dur: 60, t: 5000, day: d }]);
+    const c1 = A.market().cats.calc;
+    A.db.sessions = base.concat(Array.from({ length: 40 }, (_, i) => ({ id: 'e' + i, g: 'calc', v: 'easy', score: 60, perf: 100, dur: 60, t: 5000 + i, day: d })));
+    const c2 = A.market().cats.calc;
+    A.db.sessions = Array.from({ length: 60 }, (_, i) => ({ id: 'f' + i, g: 'calc', v: 'easy', score: 60, perf: 100, dur: 60, t: 5000 + i, day: d }));
+    const c3 = A.market().cats.calc;
+    A.db.sessions = bak;
+    ok(c1 >= c0 - 1e-9 && c2 >= c0 - 1e-9, `indice : un Facile à 100/100 ne fait pas baisser la cote (${c0.toFixed(1)} → ${c1.toFixed(1)})`);
+    ok(c3 <= 85 + 1e-6 && c3 > 80, `indice : farmer du Facile plafonne à 85 (${c3.toFixed(1)})`);
+  }
   const api = async (a, body) => { const r = await handle(new Request('http://x/api/' + a, { method: 'POST', body: JSON.stringify(body) }), store); return { s: r.status, j: await r.json() }; };
   const u1 = (await api('register', { name: 'Tom<b>' })).j, u2 = (await api('register', { name: 'Léa' })).j;
   ok(u1.name === 'Tomb' && /^[A-Z2-9]{5}$/.test(u1.code), 'API register + nettoyage');
@@ -139,9 +174,17 @@ async function main() {
   W.addEventListener('error', e => WE.push(`${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
   W.fetch = async (url, opts) => handle(new Request(new URL(url, 'http://x'), opts), mockStore());
   const U = W.A.ui, D = W.document;
-  const screens = [['desk', () => U.renderDesk()], ['modules', () => U.renderModules()], ['amis', () => U.renderSocial(false)], ['stats', () => U.renderStats()], ['réglages', () => U.renderSettings()], ['clôture', () => U.renderClose()], ['brainteaser', () => U.renderTeaser('t01', U.renderDesk)]]
+  const screens = [['desk', () => U.renderDesk()], ['modules', () => U.renderModules()], ['amis', () => U.renderSocial(false)], ['stats', () => U.renderStats()], ['parcours', () => U.renderRun()], ['réglages', () => U.renderSettings()], ['clôture', () => U.renderClose()], ['brainteaser', () => U.renderTeaser('t01', U.renderDesk)]]
     .concat(W.A.GAME_ORDER.map(id => ['intro ' + id, () => U.openIntro(id, {})]));
   for (const [name, fn] of screens) { const b = WE.length; try { fn(); await wait(20); ok(WE.length === b && D.querySelector('.screen'), 'écran ' + name); } catch (e) { ok(false, `écran ${name} : ${e.message}`); } }
+  // Parcours : écran de résultat et lancement d'un niveau (compte à rebours accéléré)
+  { const b = WE.length, sp = W.A.run.spec(3);
+    U.renderRunResult(W.A.games[sp.g], sp, { score: 9, stats: [] }, { stars: 2, passed: true, advanced: true, best: 2 }); await wait(20);
+    ok(WE.length === b && D.querySelector('.run-stars .on'), 'écran résultat Parcours');
+    const st = W.setTimeout; W.setTimeout = (fn, ms) => st(fn, ms / 20);
+    U.runGame(sp.g, sp.vid, { run: sp }); await wait(400); W.setTimeout = st;
+    const sc = D.querySelector('.hud .score b');
+    ok(WE.length === b && sc && /^0\/\d+$/.test(sc.textContent), 'Parcours : la partie démarre avec son objectif (' + (sc && sc.textContent) + ')'); }
   errs.push(...WE);
 
   // ---------- rapport

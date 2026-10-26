@@ -1,7 +1,7 @@
 #!/bin/bash
 # Captures d'écran au format iPhone (390×844), assemblées en UNE planche (moins d'images à lire).
 # Chaque argument = une capture, sous forme de paramètres de tools/shot.html :
-#   a=desk|mods|rank|stats|settings|close|teaser|intro|play|result   (écran)
+#   a=desk|mods|rank|stats|settings|close|teaser|intro|play|result|run|runres   (écran ; run : n=<niveau>, runres : n=<niveau> s=<score>)
 #   g=<id du jeu> v=<variante>   (pour intro / play / result)
 #   seed=1     faux historique de 24 jours      social=1   profil + 2 amis fictifs (onglet AMIS)
 #   y=<px>     défilement vertical

@@ -17,6 +17,7 @@ Serveur : une seule fonction Netlify (`/api/*`) + Netlify Blobs.
 | `public/js/app.js` | Écrans (`renderDesk/Modules/Social/Stats/Settings/Close/Teaser`, `openIntro`, `runGame` = moteur de partie, `renderResult`), `planFor(day)` = séance du jour, SW + mises à jour, `A.ui` |
 | `public/js/games/<id>.js` | Un jeu par fichier (ordre des `<script>` = ordre dans les listes) |
 | `public/js/games/exit-bank.js` | Banque générée de puzzles (ne pas éditer à la main → `tools/gen-exit-bank.sh`) |
+| `public/js/run.js` | `A.run` : **Parcours** (niveaux 1-2000 générés, voir section dédiée) |
 | `public/js/charts.js` | SVG faits main : `A.chart.line/candles/radar/heat/bars/spark` |
 | `public/js/social.js` | `A.social` : profil, sync du résumé, amis, board |
 | `public/js/teasers.js` | `A.TEASERS` (ids `tNN`, réponses entières, `accept` optionnel) |
@@ -46,7 +47,7 @@ Boutons de jeu : `A.tap` (pointerdown). Dans les écrans qui défilent : `click`
 
 ## Outils (à utiliser au lieu d'écrire des harnais jetables)
 - `tools/check.sh` (~3 s) : version/cache SW, contrat des jeux, générateurs, smoke test de chaque jeu et variante, API en mémoire, rendu de tous les écrans. `-v` = détail, `--full` = revérifie la banque de puzzles par BFS (~1 min, seulement si exit change).
-- `tools/shot.sh "a=desk&seed=1" "a=play&g=exit" …` → **une seule planche** `/tmp/alpha-shots/sheet.png` (écrans : desk, mods, rank, stats, settings, close, teaser, intro, play, result ; `seed=1` historique fictif, `social=1` amis fictifs, `y=` défilement).
+- `tools/shot.sh "a=desk&seed=1" "a=play&g=exit" …` → **une seule planche** `/tmp/alpha-shots/sheet.png` (écrans : desk, mods, rank, stats, settings, close, teaser, intro, play, result ; `seed=1` historique fictif, `social=1` amis fictifs, `y=` défilement ; `run&n=37` carte du Parcours, `runres&n=7&s=12` résultat d'un niveau).
 - `tools/gen-exit-bank.sh` : régénère la banque de la Balle & le Trou.
 - Local : `cd public && python3 -m http.server 8765` (l'API ne marche qu'en prod).
 
@@ -58,7 +59,7 @@ Boutons de jeu : `A.tap` (pointerdown). Dans les écrans qui défilent : `click`
 - **API** : ne pas laisser de profils de test en prod (action `delete`). Clés Blobs : `user/<id>`, `code/<CODE>`. Le jeton n'est stocké que haché.
 - **Niveau adaptatif** : mécanisme `res.level` → `A.db.levels[levelKey || id]` → `A.level()` conservé dans le moteur mais **plus utilisé par aucun jeu depuis la 1.4** (il faisait hériter la difficulté de la dernière partie). Dans une partie le niveau monte au fil des réussites, dans la plage `CFG` du mode choisi.
 - **Variantes = clés d'historique** : `sessions[].v`, `perf`, les records et le duel/défi (`jeu/variante`) reposent sur l'id de variante. Ne jamais renommer ni supprimer un id existant ; ajouter de nouveaux ids et garder les anciens (éventuellement masqués) pour ne pas casser l'historique.
-- **Données** `A.db` : `sessions[{id,g,v,score,perf,dur,t,day,daily,x}]`, `levels`, `daily[jour]{plan,done,teaser}`, `teasers`, `settings`, `social{id,token,code,name,board,...}`, `seenVersion`.
+- **Données** `A.db` : `sessions[{id,g,v,score,perf,dur,t,day,daily,x}]`, `levels`, `daily[jour]{plan,done,teaser}`, `run{lvl,stars{n:1-3},fails{n},days{jour}}`, `teasers`, `settings`, `social{id,token,code,name,board,...}`, `seenVersion`.
 - Jamais d'API d'IA payante : l'app doit rester gratuite (offres gratuites GitHub + Netlify).
 
 ## Niveaux de difficulté (v1.4.0, retours de Sacha du 2026-10-26)
@@ -80,4 +81,12 @@ Indice Alpha (`A.market()`) : une partie Facile (`w` 0,85) ou Moyenne/Réflexion
 | arb | easy (écarts larges), mid (spread ≤ niv. 3), `60` | |
 | switch, stroop | inchangés (« ça marche ») | |
 
-Pistes restantes : calibrer les barèmes `perf` avec de vraies parties (les constantes des niveaux Facile/Moyen sont des estimations), éventuel mode Réflexion pour d'autres jeux.
+## Parcours (v1.5.0)
+`A.run` (`run.js`) génère le niveau n à la demande : `A.run.spec(n, fails)` → `{g, vid, time, scale, boss, need[3] (scores pour ★/★★/★★★), assist}`. Écrans `renderRun` (carte), `renderRunResult` dans `app.js` ; `runGame(gid, vid, {run: spec})` surcharge `time` de la variante et affiche `score/objectif`.
+- 10 jeux (calc, g24, pnl, proba, fair, seq, arb, book, switch, stroop), par blocs de 10 niveaux (chaque jeu une fois, jamais deux fois de suite) ; niveau multiple de 10 = **boss** (+50 % de temps, objectif +8). Exclus : jeux sans chrono (nback, span, free) et jeux à objets/N fixe (exit, code, riddle, optiver).
+- Difficulté : paliers de variantes aux seuils 20 % / 50 % / 85 % de 2000 (Facile → Moyen → Difficile → Expert si le jeu en a un) ; dans un palier la perf visée monte de 35 à 75. Objectif converti en score via `g.perf(score × scale)` (`scale` = durée native de la variante / durée du niveau) : **modifier un `perf` ou une variante déplace les objectifs**.
+- Pas de vies : 3 échecs successifs → coup de pouce (−4 de perf visée par échec, max −12). Ne touche ni `A.db.sessions` ni l'indice ; compte seulement pour la série de jours. Sauvegardé dans `A.db.run` (donc dans la sauvegarde cloud).
+- Tests : `tools/test.html` vérifie les 2000 niveaux, l'alternance des jeux, la progression et le coup de pouce.
+- Promotion : `openIntro` propose le niveau suivant après 3 parties à `perf` ≥ 85 en niveau doux.
+
+Pistes restantes (non faites) : classements séparés par niveau, saisons hebdo, succès/badges, détecteur de points faibles, partie d'essai/tutoriel, page « pourquoi mon indice a bougé », export/import des données, accessibilité daltonisme, vérif serveur des scores ; calibrer les barèmes `perf` avec de vraies parties (les constantes des niveaux Facile/Moyen sont des estimations), éventuel mode Réflexion pour d'autres jeux.

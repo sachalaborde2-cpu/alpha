@@ -48,6 +48,8 @@ f.onload = async () => {
   const screens = {
     desk: () => U.renderDesk(), mods: () => U.renderModules(), rank: () => U.renderSocial(false), stats: () => U.renderStats(),
     settings: () => U.renderSettings(), newch: () => U.renderNewChallenge(), close: () => U.renderClose(), teaser: () => U.renderTeaser(q.get('t') || 't01', U.renderDesk),
+    run: () => { const n = +(q.get('n') || 1); A.db.run = { lvl: n, stars: Object.fromEntries(Array.from({ length: n - 1 }, (_, i) => [i + 1, 1 + (i % 3)])), fails: {}, days: {} }; U.renderRun(); },
+    runres: () => { const sp = A.run.spec(+(q.get('n') || 7)); A.db.run = { lvl: sp.n, stars: {}, fails: {}, days: {} }; const sc = +(q.get('s') || sp.need[1]); U.renderRunResult(A.games[sp.g], sp, { score: sc, stats: [['Exemple', '1,2 s']] }, A.run.complete(sp, sc)); },
     intro: () => U.openIntro(g, { v }), play: () => U.runGame(g, v, {}),
     result: () => { const before = A.market(), s = A.record({ g, v, score: 42, perf: 70, dur: 120 }); U.renderResult(A.games[g], A.variant(A.games[g], v), { score: 42, stats: [['Exemple', '1,23 s']] }, s, { before, after: A.market(), prevBest: 38, prev: [30, 35, 38], opts: {} }); }
   };

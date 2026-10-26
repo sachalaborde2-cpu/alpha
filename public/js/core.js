@@ -4,8 +4,14 @@
 const A = window.A = {};
 
 /* ---------- version ---------- */
-A.VERSION = '1.4.2';
+A.VERSION = '1.5.0';
 A.CHANGELOG = [
+  { v: '1.5.0', date: '2026-10-26', items: [
+    'Parcours : 2000 niveaux façon Candy Crush, des mini-défis de 30 à 90 s qui enchaînent tous les jeux, ★ à gagner, un boss tous les 10 niveaux',
+    'Pas de vies : si tu rates 3 fois, l’objectif baisse un peu (coup de pouce)',
+    'Le Parcours compte pour ta série de jours, mais pas pour l’indice Alpha',
+    'Promotion : 3 parties à 85+ en Facile ou Moyen, l’app te propose le niveau suivant'
+  ] },
   { v: '1.4.2', date: '2026-10-26', items: [
     'Plafonds de l’indice relevés : Facile jusqu’à 850, Moyen et Réflexion jusqu’à 950 (Difficile sans limite)'
   ] },
@@ -178,7 +184,7 @@ A.catAt = (m, cat, daysAgo) => {
   return v;
 };
 
-A.activeDays = () => { const s = new Set(); A.db.sessions.forEach(x => s.add(x.day)); return s; };
+A.activeDays = () => { const s = new Set(); A.db.sessions.forEach(x => s.add(x.day)); if (A.db.run) Object.keys(A.db.run.days || {}).forEach(d => s.add(d)); return s; };
 A.streak = () => {
   const days = A.activeDays();
   let k = A.dayKey();

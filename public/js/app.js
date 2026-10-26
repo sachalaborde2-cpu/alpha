@@ -93,6 +93,16 @@ function renderDesk() {
     </div>
 
     ${A.social.pending().length ? `<button class="card ch-alert" data-go="rank" style="width:100%;text-align:left"><span class="label amber">⚔ Défis en attente</span><div style="font-weight:700;font-size:17px;margin-top:4px">${A.social.pending().length} défi${A.social.pending().length > 1 ? 's' : ''} à relever</div></button>` : ''}
+    ${(() => {
+      const rs = A.run.state(), rn = Math.min(rs.lvl, A.run.MAX), sp = A.run.specNow(rn);
+      return `<button class="card run-card" data-go="run" style="width:100%;text-align:left">
+        <div class="card-h"><span class="label amber">Parcours · ${sp.zone}</span><span class="chip">★ ${A.run.totalStars()}</span></div>
+        <div style="font-weight:700;font-size:18px">${sp.boss ? '⚑ BOSS · ' : ''}Niveau ${rn} · ${A.games[sp.g].name}</div>
+        <div class="dim" style="font-size:12px;margin:3px 0 10px">${sp.label} · ${sp.time} s · objectif ${sp.need[0]} ${A.games[sp.g].unit}</div>
+        <div class="gauge"><i style="width:${((rn - 1) % 10) * 10 + 5}%"></i></div>
+        <div class="gauge-l"><span>NIV. ${Math.floor((rn - 1) / 10) * 10 + 1}</span><span>⚑ BOSS ${Math.ceil(rn / 10) * 10}</span></div>
+      </button>`;
+    })()}
     <div class="card daily">
       <div class="card-h">
         <div><div class="label amber">Séance du jour</div><div style="font-weight:700;font-size:18px;margin-top:4px">${doneN === 6 ? 'Séance bouclée ✓' : doneN ? 'Séance en cours' : 'Prêt pour l’ouverture'}</div></div>
@@ -137,6 +147,7 @@ function renderDesk() {
   on(el, '[data-go]', b => {
     const g = b.dataset.go;
     if (g === 'daily') openIntro(d.plan[nx].g, { daily: nx });
+    if (g === 'run') renderRun();
     if (g === 'close') renderClose();
     if (g === 'settings') renderSettings();
     if (g === 'rank') { tab = 'rank'; renderSocial(); }
@@ -181,6 +192,9 @@ function openIntro(gid, opts) {
   const draw = () => {
     const v = A.variant(g, vid), ss = A.sessionsOf(gid, vid);
     const best = A.best(gid, vid), last5 = ss.slice(-5).map(s => s.score);
+    // promotion : 3 dernières parties d'un niveau doux à 85+ → on propose le niveau suivant
+    const vis = g.variants.filter(x => !x.hide), nxt = vis[vis.findIndex(x => x.id === vid) + 1];
+    const promo = !isDaily && !ch && v.w < 1 && nxt && !nxt.free && ss.length >= 3 && ss.slice(-3).every(x => x.perf >= 85) ? nxt : null;
     const el = page(`
       <button class="back" data-back>${I.back} ${isDaily ? 'DESK' : 'MODULES'}</button>
       <div class="intro-code">${ch ? `⚔ DÉFI · ${ch.players.length} JOUEURS · MÊMES QUESTIONS` : isDaily ? `ÉPREUVE ${opts.daily + 1}/6 · ${daily().plan[opts.daily].slot}` : `${A.CATS[g.cat].code} · ${g.code}`}</div>
@@ -188,6 +202,7 @@ function openIntro(gid, opts) {
       <div class="h-sub">${g.desc}</div>
       ${!isDaily && !ch && g.variants.length > 1 ? `<div class="seg" style="margin-bottom:${v.note ? 6 : 12}px">${g.variants.filter(x => !x.hide || x.id === vid || A.sessionsOf(gid, x.id).length).map(x => `<button data-v="${x.id}" class="${x.id === vid ? 'on' : ''}">${x.label}</button>`).join('')}</div>` : ''}
       ${v.note ? `<div class="muted" style="font-size:12px;margin-bottom:12px">${v.note}</div>` : ''}
+      ${promo ? `<div class="card promo"><div class="label amber">Tu maîtrises ce niveau</div><div style="margin:4px 0 10px">3 parties de suite à 85+ en ${v.label}. Prêt pour ${promo.label} ?</div><button class="btn ghost small" data-promo="${promo.id}">Passer en ${promo.label} ▸</button></div>` : ''}
       <div class="stats-grid">
         <div class="stat"><div class="label">Record</div><div class="v">${best != null ? best : '—'}</div></div>
         <div class="stat"><div class="label">Moy. 5</div><div class="v">${last5.length ? A.fmt(A.avg(last5), 1) : '—'}</div></div>
@@ -206,6 +221,7 @@ function openIntro(gid, opts) {
     }
     on(el, '[data-back]', () => ch ? (tab = 'rank', renderSocial(false)) : isDaily ? renderDesk() : (tab = 'mods', renderModules()));
     on(el, '[data-v]', b => { vid = b.dataset.v; draw(); });
+    on(el, '[data-promo]', b => { vid = b.dataset.promo; draw(); });
     on(el, '[data-play]', () => runGame(gid, vid, opts));
   };
   draw();
@@ -213,12 +229,14 @@ function openIntro(gid, opts) {
 
 /* ---------- PARTIE ---------- */
 function runGame(gid, vid, opts) {
-  const g = A.games[gid], v = A.variant(g, vid);
+  const g = A.games[gid], run = opts.run;
+  // Parcours : même jeu et même variante, mais durée du niveau
+  const v = run ? Object.assign({}, A.variant(g, vid), { time: run.time, free: false }) : A.variant(g, vid);
   const root = A.h(`<div class="screen game">
     <div class="hud">
       <button class="icon-btn" data-q>${I.close}</button>
       <span class="code">${g.code}</span><span class="sp"></span>
-      <span class="score">${g.scoreLabel || 'SCORE'}<b>0</b></span>
+      <span class="score">${g.scoreLabel || 'SCORE'}<b>${run ? '0/' + run.need[0] : 0}</b></span>
       <span class="time">${v.time ? A.mmss(v.time) : '0:00'}</span>
       ${v.free ? '<button class="icon-btn" data-end style="width:auto;padding:0 10px;font-size:12px;font-weight:700;letter-spacing:.06em">FIN</button>' : ''}
       <button class="icon-btn" data-p>${I.pause}</button>
@@ -228,14 +246,17 @@ function runGame(gid, vid, opts) {
   </div>`);
   mount(root, false);
   const stage = root.querySelector('.stage'), scoreEl = root.querySelector('.score b'), timeEl = root.querySelector('.time'), bar = root.querySelector('.tbar');
-  let clock = 0, last = null, paused = false, running = false, ended = false, inst = null, tasks = [];
+  let starsSeen = 0, clock = 0, last = null, paused = false, running = false, ended = false, inst = null, tasks = [];
   if (!v.time) bar.querySelector('i').style.transform = 'scaleX(0)';
 
   const ctx = {
     el: stage, v, sfx: A.sfx,
     now: () => clock,
     later: (fn, ms) => tasks.push({ at: clock + ms, fn }),
-    score: n => { scoreEl.textContent = n; },
+    score: n => {
+      scoreEl.textContent = run ? `${n}/${run.need[Math.min(2, run.need.filter(x => n >= x).length)]}` : n;
+      if (run) { const k = run.need.filter(x => n >= x).length; if (k > starsSeen) { starsSeen = k; ctx.toast('★'.repeat(k) + ' ' + (k === 1 ? 'OBJECTIF ATTEINT' : k === 2 ? 'EXCELLENT' : 'PARFAIT')); } }
+    },
     progress: p => { if (!v.time) bar.querySelector('i').style.transform = `scaleX(${A.clamp(p, 0, 1)})`; },
     flash: ok => { stage.classList.remove('flash-ok', 'flash-bad'); void stage.offsetWidth; stage.classList.add(ok ? 'flash-ok' : 'flash-bad'); },
     toast: msg => { const t = A.h(`<div class="g-toast">${msg}</div>`); stage.appendChild(t); setTimeout(() => t.remove(), 1100); },
@@ -279,7 +300,7 @@ function runGame(gid, vid, opts) {
   document.addEventListener('visibilitychange', onVis);
   let realRandom = null; // défi : Math.random remplacé par un générateur à graine commune
   const cleanup = () => { if (realRandom) { Math.random = realRandom; realRandom = null; } ended = true; clearInterval(iv); document.removeEventListener('visibilitychange', onVis); A.wake(false); };
-  const quit = () => { cleanup(); opts.challenge ? (tab = 'rank', renderSocial(false)) : opts.daily != null ? renderDesk() : openIntro(gid, { v: vid }); };
+  const quit = () => { cleanup(); run ? renderRun() : opts.challenge ? (tab = 'rank', renderSocial(false)) : opts.daily != null ? renderDesk() : openIntro(gid, { v: vid }); };
   root.querySelector('[data-q]').addEventListener('click', async () => {
     const wasPaused = paused; paused = true;
     if (await A.confirm('Abandonner la partie ?', 'Elle ne sera pas comptée dans ton indice.', 'Abandonner', 'Continuer')) quit();
@@ -293,6 +314,7 @@ function runGame(gid, vid, opts) {
     if (ended) return;
     cleanup();
     A.sfx('end');
+    if (run) { renderRunResult(g, run, res, A.run.complete(run, res.score)); return; }
     const before = A.market();
     const prevBest = A.best(gid, vid);
     const prev = A.sessionsOf(gid, vid).slice(-5).map(s => s.score);
@@ -307,7 +329,9 @@ function runGame(gid, vid, opts) {
   }
 
   // compte à rebours puis départ
-  const ov = A.h('<div class="overlay"><div class="label">Ouverture dans</div><div class="count">3</div></div>');
+  const ov = A.h(run
+    ? `<div class="overlay"><div class="label">${run.boss ? '⚑ BOSS · ' : ''}Niveau ${run.n} · ${g.name}</div><div class="label amber">Objectif : ${run.need[0]} ${g.unit}</div><div class="count">3</div></div>`
+    : '<div class="overlay"><div class="label">Ouverture dans</div><div class="count">3</div></div>');
   root.appendChild(ov);
   let n = 3;
   const countdown = () => {
@@ -376,6 +400,63 @@ function renderResult(g, v, res, s, { before, after, prevBest, prev, opts }) {
     if (a === 'again') runGame(g.id, v.id, {});
     if (a === 'ch') { tab = 'rank'; renderSocial(); }
     if (a === 'home') isDaily ? renderDesk() : (tab = 'mods', renderModules());
+  });
+}
+
+/* ---------- PARCOURS ---------- */
+const starsTxt = (k, max = 3) => '★'.repeat(k) + '☆'.repeat(max - k);
+const playRun = n => { const sp = A.run.specNow(n); runGame(sp.g, sp.vid, { run: sp }); };
+
+function renderRun() {
+  const S = A.run.state(), R = A.run, cur = Math.min(S.lvl, R.MAX);
+  const from = Math.max(1, cur - 6), to = Math.min(R.MAX, cur + 5);
+  let rows = '';
+  for (let n = to; n >= from; n--) {
+    const sp = R.specNow(n), g = A.games[sp.g], k = S.stars[n] || 0;
+    const state = n < S.lvl ? 'done' : n === S.lvl ? 'cur' : 'lock';
+    rows += `<div class="rn-row" style="padding-left:${[0, 30, 60, 30][n % 4]}%">
+      <button class="rn ${state}${sp.boss ? ' boss' : ''}" data-n="${n}" ${state === 'lock' ? 'disabled' : ''}><b>${sp.boss ? '⚑' : n}</b>${state === 'lock' ? '' : `<i>${starsTxt(k)}</i>`}</button>
+      <span class="rn-l ${state}"><b>${g.code}</b> ${sp.label}${sp.boss ? ' · BOSS' : ''}</span></div>`;
+  }
+  const el = page(`
+    <button class="back" data-back>${I.back} DESK</button>
+    <div class="intro-code">PARCOURS · ZONE ${Math.floor((cur - 1) / 100) + 1}/${R.ZONES.length}</div>
+    <div class="h-title">${R.zone(cur)}</div>
+    <div class="h-sub">Niveau ${cur}/${R.MAX} · ★ ${R.totalStars()} · un boss tous les 10 niveaux. Pas de vies : rate, réessaie.</div>
+    <div class="rn-map">${rows}</div>
+    <div style="height:90px"></div>`, false);
+  const sp = R.specNow(cur);
+  el.appendChild(A.h(`<div class="bottom-cta"><button class="btn primary" data-n="${cur}">Niveau ${cur} · ${A.games[sp.g].code} ▸</button></div>`));
+  mount(el, false);
+  on(el, '[data-back]', () => { tab = 'desk'; renderDesk(); });
+  on(el, '[data-n]', b => playRun(+b.dataset.n));
+}
+
+function renderRunResult(g, run, res, out) {
+  const S = A.run.state(), R = A.run, last = run.n >= R.MAX;
+  const el = page(`
+    <div class="label" style="margin-top:10px">${run.boss ? '⚑ BOSS · ' : ''}NIVEAU ${run.n} · ${g.code} · ${run.label}</div>
+    <div class="h-title">${out.passed ? (out.stars === 3 ? 'Parfait !' : 'Niveau réussi') : 'Raté de peu'}</div>
+    <div class="run-stars">${[1, 2, 3].map(i => `<span class="${i <= out.stars ? 'on' : ''}" style="animation-delay:${0.15 * i}s">★</span>`).join('')}</div>
+    <div class="card">
+      <div class="card-h"><span class="label">Score</span><span class="mono" style="font-weight:700">${A.fmt(res.score, 0)} <span class="muted">${g.unit}</span></span></div>
+      <div class="dim" style="font-size:13px;margin-top:6px">★ ${run.need[0]} · ★★ ${run.need[1]} · ★★★ ${run.need[2]}</div>
+      ${out.advanced ? `<div style="margin-top:10px"><span class="badge">▲ NIVEAU ${S.lvl} DÉBLOQUÉ</span></div>` : ''}
+      ${!out.passed && run.assist ? '<div class="muted" style="font-size:12px;margin-top:10px">Coup de pouce actif : objectif abaissé.</div>' : ''}
+      ${!out.passed && (S.fails[run.n] || 0) >= 1 && (S.fails[run.n] || 0) < 3 ? `<div class="muted" style="font-size:12px;margin-top:10px">Encore ${3 - S.fails[run.n]} échec${3 - S.fails[run.n] > 1 ? 's' : ''} et l’objectif baisse un peu.</div>` : ''}
+    </div>
+    ${res.stats && res.stats.length ? `<div class="stats-grid two">${res.stats.slice(0, 4).map(([k, val]) => `<div class="stat"><div class="label">${k}</div><div class="v" style="font-size:17px">${val}</div></div>`).join('')}</div>` : ''}
+    <div style="height:150px"></div>`, false);
+  el.appendChild(A.h(`<div class="bottom-cta">
+    ${out.passed ? (last ? '<div class="h-sub" style="text-align:center">Parcours terminé. Respect.</div>' : `<button class="btn primary" data-a="next">Niveau ${run.n + 1} ▸</button>`) : '<button class="btn primary" data-a="again">Réessayer ▸</button>'}
+    <div class="btn-row" style="margin-top:8px">${out.passed && out.best < 3 ? '<button class="btn ghost small" data-a="again">Viser ★★★</button>' : ''}<button class="btn ghost small" data-a="map">Carte</button></div>
+  </div>`));
+  mount(el, false);
+  on(el, '[data-a]', b => {
+    const a = b.dataset.a;
+    if (a === 'next') playRun(run.n + 1);
+    if (a === 'again') playRun(run.n);
+    if (a === 'map') renderRun();
   });
 }
 
@@ -923,7 +1004,7 @@ function whatsNew() {
   m.querySelector('button').addEventListener('click', () => m.remove());
   document.body.appendChild(m);
 }
-A.ui = { renderNewChallenge, renderDesk, renderModules, renderStats, renderSocial, openIntro, runGame, renderResult, renderClose, renderTeaser, renderSettings };
+A.ui = { renderRun, renderRunResult, renderNewChallenge, renderDesk, renderModules, renderStats, renderSocial, openIntro, runGame, renderResult, renderClose, renderTeaser, renderSettings };
 renderDesk();
 whatsNew();
 if (A.social.enabled()) A.social.sync(true);
