@@ -30,10 +30,10 @@ A.register({
     'Réflexion : comme Difficile, sans chrono, tape FIN pour terminer'
   ],
   variants: [
-    { id: 'easy', label: 'Facile', time: 300, w: 0.7, note: '5 min · chaque chiffre est marqué, sans répétition' },
-    { id: 'mid', label: 'Moyen', time: 300, w: 0.9, note: '5 min · chaque chiffre est marqué, répétitions possibles' },
+    { id: 'easy', label: 'Facile', time: 300, w: 0.85, note: '5 min · chaque chiffre est marqué, sans répétition' },
+    { id: 'mid', label: 'Moyen', time: 300, w: 0.95, note: '5 min · chaque chiffre est marqué, répétitions possibles' },
     { id: '300', label: 'Difficile', time: 300, note: '5 min · ● ○ seulement, sans savoir lesquels' },
-    { id: 'free', label: 'Réflexion', time: null, free: true, w: 0.9, note: 'Sans chrono · ● ○ seulement, tape FIN pour terminer' },
+    { id: 'free', label: 'Réflexion', time: null, free: true, w: 0.95, note: 'Sans chrono · ● ○ seulement, tape FIN pour terminer' },
     { id: '180', label: '3 min', time: 180, hide: true }
   ],
   def: 'easy', unit: 'points',

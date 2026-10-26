@@ -61,10 +61,10 @@ A.register({
     'Facile : suites simples (+, −, ×) · Moyen : alternées et carrés · Difficile : jusqu’au niveau 5 · Réflexion : sans chrono, tape FIN',
     'La réponse est validée dès qu’elle est juste', 'PASSER révèle la réponse (pas de pénalité, mais pas de point)', 'Pense aux différences, aux rapports, aux carrés et à l’entrelacement'],
   variants: [
-    { id: 'easy', label: 'Facile', time: 180, w: 0.7, note: '3 min · niveaux 1 à 2, montée lente' },
-    { id: 'mid', label: 'Moyen', time: 180, w: 0.9, note: '3 min · niveaux 2 à 3' },
+    { id: 'easy', label: 'Facile', time: 180, w: 0.85, note: '3 min · niveaux 1 à 2, montée lente' },
+    { id: 'mid', label: 'Moyen', time: 180, w: 0.95, note: '3 min · niveaux 2 à 3' },
     { id: '180', label: 'Difficile', time: 180, note: '3 min · du niveau 3 au niveau 5' },
-    { id: 'free', label: 'Réflexion', time: null, free: true, w: 0.9, note: 'Sans chrono · niveaux 3 à 5, tape FIN pour terminer' },
+    { id: 'free', label: 'Réflexion', time: null, free: true, w: 0.95, note: 'Sans chrono · niveaux 3 à 5, tape FIN pour terminer' },
     { id: '300', label: '5 min', time: 300, hide: true }
   ],
   def: 'easy', unit: 'trouvées',

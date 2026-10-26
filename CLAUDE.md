@@ -63,7 +63,7 @@ Boutons de jeu : `A.tap` (pointerdown). Dans les écrans qui défilent : `click`
 
 ## Niveaux de difficulté (v1.4.0, retours de Sacha du 2026-10-26)
 Constat de départ : trop dur quand on ne connaît pas le jeu ou qu'on n'est pas échauffé ; Sacha veut s'amuser en enchaînant du facile, et parfois réfléchir sans chrono. Principes appliqués : niveaux séparés et explicites (Facile par défaut), plages de difficulté fixes par niveau avec plafonds, montée plus lente, mode Réflexion sans chrono. Le séance du jour (`planFor`) utilise `mid`.
-Indice Alpha (`A.market()`) : une partie Facile (`w` 0,7) ou Moyenne (0,9) tire la cote de sa catégorie vers `perf × w` (plafond), **sans jamais la faire baisser tant que `perf` ≥ 50** (sinon farmer du facile ne ferait rien monter, et un 100/100 facile ne doit pas faire perdre). Pour dépasser 700 / 900 il faut jouer le niveau au-dessus. La `perf` affichée /100 de la partie n'est pas pondérée.
+Indice Alpha (`A.market()`) : une partie Facile (`w` 0,85) ou Moyenne/Réflexion (0,95) tire la cote de sa catégorie vers `perf × w` (plafond), **sans jamais la faire baisser tant que `perf` ≥ 50** (sinon farmer du facile ne ferait rien monter, et un 100/100 facile ne doit pas faire perdre). Pour dépasser 850 / 950 il faut jouer le niveau au-dessus. La `perf` affichée /100 de la partie n'est pas pondérée.
 
 | Jeu | Niveaux (ids) | Notes |
 |---|---|---|

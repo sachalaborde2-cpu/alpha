@@ -77,8 +77,8 @@ A.register({
     'Facile : petites quantités, prix entiers · Moyen : un peu de tout · Difficile : prix moyen, composés, retour à zéro…'
   ],
   variants: [
-    { id: 'easy', label: 'Facile', time: 180, w: 0.7, note: '3 min · chiffres ronds, calculs simples' },
-    { id: 'mid', label: 'Moyen', time: 180, w: 0.9, note: '3 min · levier, change, rendements' },
+    { id: 'easy', label: 'Facile', time: 180, w: 0.85, note: '3 min · chiffres ronds, calculs simples' },
+    { id: 'mid', label: 'Moyen', time: 180, w: 0.95, note: '3 min · levier, change, rendements' },
     { id: '180', label: 'Difficile', time: 180, note: '3 min · tout le programme' },
     { id: '300', label: '5 min', time: 300, hide: true }
   ],

@@ -43,10 +43,10 @@ A.register({
     'Difficile : jusqu’à 13, fractions possibles · Réflexion : sans chrono, tape FIN quand tu veux'
   ],
   variants: [
-    { id: 'easy', label: 'Facile', time: 180, w: 0.7, note: '3 min · nombres de 1 à 6, étapes entières' },
-    { id: 'mid', label: 'Moyen', time: 180, w: 0.9, note: '3 min · nombres de 1 à 9, étapes entières' },
+    { id: 'easy', label: 'Facile', time: 180, w: 0.85, note: '3 min · nombres de 1 à 6, étapes entières' },
+    { id: 'mid', label: 'Moyen', time: 180, w: 0.95, note: '3 min · nombres de 1 à 9, étapes entières' },
     { id: '180', label: 'Difficile', time: 180, note: '3 min · jusqu’à 13, fractions possibles' },
-    { id: 'free', label: 'Réflexion', time: null, free: true, w: 0.9, note: 'Sans chrono · prends le temps, tape FIN pour terminer' },
+    { id: 'free', label: 'Réflexion', time: null, free: true, w: 0.95, note: 'Sans chrono · prends le temps, tape FIN pour terminer' },
     { id: '300', label: '5 min', time: 300, hide: true }
   ],
   def: 'easy', unit: 'résolus',

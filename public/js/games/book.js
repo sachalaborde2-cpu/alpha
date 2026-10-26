@@ -13,8 +13,8 @@ A.register({
     'Facile : 3 à 4 lignes, prix à 2 chiffres, plus de temps · Moyen : jusqu’à 6 lignes · Difficile : jusqu’à 8 lignes'
   ],
   variants: [
-    { id: 'easy', label: 'Facile', time: 180, w: 0.7, note: '3 min · 3 à 4 lignes, prix courts, temps allongé' },
-    { id: 'mid', label: 'Moyen', time: 180, w: 0.9, note: '3 min · jusqu’à 6 lignes' },
+    { id: 'easy', label: 'Facile', time: 180, w: 0.85, note: '3 min · 3 à 4 lignes, prix courts, temps allongé' },
+    { id: 'mid', label: 'Moyen', time: 180, w: 0.95, note: '3 min · jusqu’à 6 lignes' },
     { id: '180', label: 'Difficile', time: 180, note: '3 min · jusqu’à 8 lignes' },
     { id: '300', label: '5 min', time: 300, hide: true }
   ],

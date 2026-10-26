@@ -132,10 +132,10 @@ A.register({
     'Facile : puzzles de 3 à 8 coups · Moyen : 6 à 12 · Difficile : jusqu’à 28 · Réflexion : sans chrono, tape FIN'
   ],
   variants: [
-    { id: 'easy', label: 'Facile', time: 300, w: 0.7, note: '5 min · puzzles courts (3 à 8 coups), montée lente' },
-    { id: 'mid', label: 'Moyen', time: 300, w: 0.9, note: '5 min · 6 à 12 coups' },
+    { id: 'easy', label: 'Facile', time: 300, w: 0.85, note: '5 min · puzzles courts (3 à 8 coups), montée lente' },
+    { id: 'mid', label: 'Moyen', time: 300, w: 0.95, note: '5 min · 6 à 12 coups' },
     { id: '300', label: 'Difficile', time: 300, note: '5 min · de 9 à 28 coups' },
-    { id: 'free', label: 'Réflexion', time: null, free: true, w: 0.9, note: 'Sans chrono · puzzles longs, tape FIN pour terminer' },
+    { id: 'free', label: 'Réflexion', time: null, free: true, w: 0.95, note: 'Sans chrono · puzzles longs, tape FIN pour terminer' },
     { id: '180', label: '3 min', time: 180, hide: true }
   ],
   def: 'easy', unit: 'points',

@@ -79,8 +79,8 @@ A.register({
     'Réflexes utiles : passer par le contraire, compter les cas, la symétrie'
   ],
   variants: [
-    { id: 'easy', label: 'Facile', time: 180, w: 0.7, note: '3 min · dés, pièces, paris simples, de tête' },
-    { id: 'mid', label: 'Moyen', time: 180, w: 0.9, note: '3 min · un peu de comptage' },
+    { id: 'easy', label: 'Facile', time: 180, w: 0.85, note: '3 min · dés, pièces, paris simples, de tête' },
+    { id: 'mid', label: 'Moyen', time: 180, w: 0.95, note: '3 min · un peu de comptage' },
     { id: '180', label: 'Difficile', time: 180, note: '3 min · tout le programme' },
     { id: '300', label: '5 min', time: 300, hide: true }
   ],

@@ -10,10 +10,10 @@ A.register({
     'Facile et Moyen ont un plafond : la partie s’arrête quand tu le réussis (5 et 7 éléments)'
   ],
   variants: [
-    { id: 'easy', label: 'Facile', time: null, w: 0.7, note: 'Grille · de 3 à 5 éléments' },
-    { id: 'mid', label: 'Moyen', time: null, w: 0.9, note: 'Grille · de 3 à 7 éléments' },
+    { id: 'easy', label: 'Facile', time: null, w: 0.85, note: 'Grille · de 3 à 5 éléments' },
+    { id: 'mid', label: 'Moyen', time: null, w: 0.95, note: 'Grille · de 3 à 7 éléments' },
     { id: 'spatial', label: 'Difficile', time: null, note: 'Grille · sans plafond, départ à 4' },
-    { id: 'dfwd', label: 'Chiffres', time: null, w: 0.8, note: 'Chiffres dans l’ordre · de 3 à 8' },
+    { id: 'dfwd', label: 'Chiffres', time: null, w: 0.9, note: 'Chiffres dans l’ordre · de 3 à 8' },
     { id: 'digits', label: 'Inverse', time: null, note: 'Chiffres à l’envers · sans plafond' }
   ],
   def: 'easy', unit: 'éléments', scoreLabel: 'SPAN',

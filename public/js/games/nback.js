@@ -27,8 +27,8 @@ A.register({
     'Facile : N de 1 à 2 · Moyen : N de 2 à 3 · Difficile : N de 3 à 6'
   ],
   variants: [
-    { id: 'easy', label: 'Facile', time: null, blocks: 3, w: 0.7, note: '3 blocs · N de 1 à 2' },
-    { id: 'mid', label: 'Moyen', time: null, blocks: 3, w: 0.9, note: '3 blocs · N de 2 à 3' },
+    { id: 'easy', label: 'Facile', time: null, blocks: 3, w: 0.85, note: '3 blocs · N de 1 à 2' },
+    { id: 'mid', label: 'Moyen', time: null, blocks: 3, w: 0.95, note: '3 blocs · N de 2 à 3' },
     { id: '3', label: 'Difficile', time: null, blocks: 3, note: '3 blocs · N de 3 à 6' },
     { id: '2', label: '2 blocs', time: null, blocks: 2, hide: true },
     { id: '5', label: '5 blocs', time: null, blocks: 5, hide: true }

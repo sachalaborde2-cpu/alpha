@@ -33,8 +33,8 @@ A.register({
     'Repère indicatif desks de trading : 40+ en 2 min, 60+ = excellent'
   ],
   variants: [
-    { id: 'easy', label: 'Facile', time: 60, w: 0.7, note: '1 min · petits nombres, tables de 2 à 5' },
-    { id: 'mid', label: 'Moyen', time: 120, w: 0.9, note: '2 min · nombres jusqu’à 60, tables jusqu’à 9' },
+    { id: 'easy', label: 'Facile', time: 60, w: 0.85, note: '1 min · petits nombres, tables de 2 à 5' },
+    { id: 'mid', label: 'Moyen', time: 120, w: 0.95, note: '2 min · nombres jusqu’à 60, tables jusqu’à 9' },
     { id: '120', label: 'Difficile', time: 120, note: '2 min · réglages Zetamac standard' },
     { id: 'hard', label: 'Expert', time: 120, note: '2 min · nombres à 3 chiffres' },
     { id: '60', label: '1 min Zetamac', time: 60, hide: true }

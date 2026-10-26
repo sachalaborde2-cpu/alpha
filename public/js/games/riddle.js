@@ -122,10 +122,10 @@ A.register({
     'Facile : règles du niveau 1 uniquement · Moyen : niveaux 1 à 2 · Difficile : niveaux 2 à 4 · Réflexion : sans chrono, niveaux 3 à 4'
   ],
   variants: [
-    { id: 'easy', label: 'Facile', time: 240, w: 0.7, note: '4 min · règles simples, pas de montée' },
-    { id: 'mid', label: 'Moyen', time: 240, w: 0.9, note: '4 min · niveaux 1 à 2' },
+    { id: 'easy', label: 'Facile', time: 240, w: 0.85, note: '4 min · règles simples, pas de montée' },
+    { id: 'mid', label: 'Moyen', time: 240, w: 0.95, note: '4 min · niveaux 1 à 2' },
     { id: '240', label: 'Difficile', time: 240, note: '4 min · niveaux 2 à 4' },
-    { id: 'free', label: 'Réflexion', time: null, free: true, w: 0.9, note: 'Sans chrono · énigmes costaudes, tape FIN pour terminer' },
+    { id: 'free', label: 'Réflexion', time: null, free: true, w: 0.95, note: 'Sans chrono · énigmes costaudes, tape FIN pour terminer' },
     { id: '420', label: '7 min', time: 420, hide: true }
   ],
   def: 'easy', unit: 'résolues',

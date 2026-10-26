@@ -73,8 +73,8 @@ A.register({
     'Facile : un dé, une pièce, sommes simples · Moyen : un peu de cartes et de max · Difficile : conditionnel, produits, cartes'
   ],
   variants: [
-    { id: 'easy', label: 'Facile', time: 180, w: 0.7, note: '3 min · dés et pièces, calcul de tête' },
-    { id: 'mid', label: 'Moyen', time: 180, w: 0.9, note: '3 min · montée lente jusqu’au niveau 2' },
+    { id: 'easy', label: 'Facile', time: 180, w: 0.85, note: '3 min · dés et pièces, calcul de tête' },
+    { id: 'mid', label: 'Moyen', time: 180, w: 0.95, note: '3 min · montée lente jusqu’au niveau 2' },
     { id: '180', label: 'Difficile', time: 180, note: '3 min · monte jusqu’au niveau 3' },
     { id: '300', label: '5 min', time: 300, hide: true }
   ],

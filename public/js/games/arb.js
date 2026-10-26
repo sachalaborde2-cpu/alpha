@@ -60,8 +60,8 @@ A.register({
     'Facile : écarts larges, cotations simples, le spread ne se resserre que d’un cran · Moyen : spread jusqu’au niveau 3 · Difficile : jusqu’au niveau 5'
   ],
   variants: [
-    { id: 'easy', label: 'Facile', time: 60, w: 0.7, note: '1 min · écarts larges, calculs simples' },
-    { id: 'mid', label: 'Moyen', time: 60, w: 0.9, note: '1 min · spread jusqu’au niveau 3' },
+    { id: 'easy', label: 'Facile', time: 60, w: 0.85, note: '1 min · écarts larges, calculs simples' },
+    { id: 'mid', label: 'Moyen', time: 60, w: 0.95, note: '1 min · spread jusqu’au niveau 3' },
     { id: '60', label: 'Difficile', time: 60, note: '1 min · spread jusqu’au niveau 5' },
     { id: '120', label: '2 min', time: 120, hide: true }
   ],

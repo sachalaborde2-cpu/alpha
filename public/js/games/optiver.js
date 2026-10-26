@@ -56,8 +56,8 @@ A.register({
   rules: ['Une bonne réponse = +1, une erreur = −1', 'Décimales, fractions, pourcentages, multiplications', 'Facile : petits nombres, pourcentages ronds · Moyen : un peu de tout · Difficile : fractions, décimales × décimales',
     'Astuce : estime l’ordre de grandeur, puis vérifie le dernier chiffre'],
   variants: [
-    { id: 'easy', label: 'Facile', time: 180, n: 20, w: 0.7, note: '20 questions en 3 min · petits nombres' },
-    { id: 'mid', label: 'Moyen', time: 300, n: 40, w: 0.9, note: '40 questions en 5 min' },
+    { id: 'easy', label: 'Facile', time: 180, n: 20, w: 0.85, note: '20 questions en 3 min · petits nombres' },
+    { id: 'mid', label: 'Moyen', time: 300, n: 40, w: 0.95, note: '40 questions en 5 min' },
     { id: '40', label: 'Difficile', time: 240, n: 40, note: '40 en 4 · tout le programme' },
     { id: '80', label: '80 en 8', time: 480, n: 80, note: 'Le test complet : 80 en 8 min' }
   ],

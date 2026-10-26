@@ -4,8 +4,11 @@
 const A = window.A = {};
 
 /* ---------- version ---------- */
-A.VERSION = '1.4.1';
+A.VERSION = '1.4.2';
 A.CHANGELOG = [
+  { v: '1.4.2', date: '2026-10-26', items: [
+    'Plafonds de l’indice relevés : Facile jusqu’à 850, Moyen et Réflexion jusqu’à 950 (Difficile sans limite)'
+  ] },
   { v: '1.4.1', date: '2026-10-26', items: [
     'Indice Alpha : un niveau Facile ou Moyen réussi ne fait plus jamais baisser ta cote ; il la fait monter jusqu’à son plafond (700 en Facile, 900 en Moyen), au-delà il faut jouer le niveau supérieur'
   ] },
