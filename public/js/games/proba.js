@@ -50,12 +50,18 @@ const FIXED = [
   ['Deux dés. Probabilité que la somme soit paire ?', '1/2', ['1/3', '5/12', '7/12'], 'Même parité pour les deux dés : 1/2.']
 ].map(([q, ans, ds, e]) => ({ q, ans, ds, e }));
 
-function gen(usedFixed) {
+// niveaux : indices des questions faisables de tête, sans papier
+const LV = {
+  easy: { param: [4, 7, 0], fixed: [0, 5, 6, 7, 18, 22] },
+  mid: { param: [0, 1, 2, 4, 5, 7], fixed: [0, 4, 5, 6, 7, 8, 9, 11, 12, 14, 15, 18, 20, 22] }
+};
+function gen(usedFixed, lv) {
+  const L = LV[lv], fixed = L ? L.fixed.map(i => FIXED[i]) : FIXED, param = L ? L.param.map(i => PARAM[i]) : PARAM;
   if (Math.random() < 0.45) {
-    const left = FIXED.filter((_, i) => !usedFixed.has(i));
+    const left = fixed.filter(it => !usedFixed.has(FIXED.indexOf(it)));
     if (left.length) { const it = A.pick(left); usedFixed.add(FIXED.indexOf(it)); return it; }
   }
-  return A.pick(PARAM)();
+  return A.pick(param)();
 }
 function options(it) {
   const seen = new Set([it.ans]), out = [it.ans];
@@ -67,17 +73,26 @@ A.register({
   id: 'proba', cat: 'quant', code: 'PROBA', name: 'Probas & EV',
   short: 'Dés, cartes, paris : le quiz trading',
   desc: 'Les questions de probabilités et d’espérance des entretiens trading. Réponds vite, mais une erreur coûte un point. Après une erreur, lis l’explication.',
-  rules: ['Bonne réponse +1, erreur −1', 'Après une erreur, l’explication s’affiche : touche pour continuer', 'Réflexes utiles : passer par le contraire, compter les cas, la symétrie'],
-  variants: [{ id: '180', label: '3 min', time: 180 }, { id: '300', label: '5 min', time: 300 }],
-  def: '180', unit: 'points nets',
-  perf: (s, v) => s / (v === '300' ? 20 : 12) * 100,
+  rules: [
+    'Bonne réponse +1, erreur −1', 'Après une erreur, l’explication s’affiche : touche pour continuer',
+    'Facile et Moyen : questions faisables de tête, sans papier · Difficile : cartes, urnes, lois géométriques…',
+    'Réflexes utiles : passer par le contraire, compter les cas, la symétrie'
+  ],
+  variants: [
+    { id: 'easy', label: 'Facile', time: 180, w: 0.7, note: '3 min · dés, pièces, paris simples, de tête' },
+    { id: 'mid', label: 'Moyen', time: 180, w: 0.9, note: '3 min · un peu de comptage' },
+    { id: '180', label: 'Difficile', time: 180, note: '3 min · tout le programme' },
+    { id: '300', label: '5 min', time: 300, hide: true }
+  ],
+  def: 'easy', unit: 'points nets',
+  perf: (s, v) => s / ({ '300': 20, easy: 14, mid: 13 }[v] || 12) * 100,
   start(ctx) {
     let good = 0, bad = 0, cur, locked = false;
     const used = new Set();
     ctx.el.innerHTML = `<div class="qbox pb"><div class="pb-q"></div><div class="pb-e"></div></div><div class="opts"></div>`;
     const qEl = ctx.el.querySelector('.pb-q'), eEl = ctx.el.querySelector('.pb-e'), oEl = ctx.el.querySelector('.opts');
     const next = () => {
-      cur = gen(used); locked = false;
+      cur = gen(used, ctx.v.id); locked = false;
       qEl.textContent = cur.q; eEl.innerHTML = '';
       oEl.innerHTML = options(cur).map(o => `<button class="opt">${o}</button>`).join('');
       oEl.querySelectorAll('.opt').forEach(b => A.tap(b, () => {

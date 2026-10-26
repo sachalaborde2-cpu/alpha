@@ -11,15 +11,35 @@ function feedback(code, guess) {
   return { exact, mis };
 }
 
+// indice par chiffre (niveaux Facile/Moyen) : 'x' bien placé, 'm' présent mais mal placé, '' absent
+function pegFb(code, guess) {
+  const out = guess.map(() => ''), left = [0, 0, 0, 0, 0, 0, 0];
+  for (let i = 0; i < LEN; i++) { if (code[i] === guess[i]) out[i] = 'x'; else left[code[i]]++; }
+  for (let i = 0; i < LEN; i++) if (!out[i] && left[guess[i]] > 0) { out[i] = 'm'; left[guess[i]]--; }
+  return out;
+}
+
 A.register({
   id: 'code', cat: 'logi', code: 'CODE', name: 'Code Breaker',
   short: 'Déduis le code secret en 8 essais',
   desc: 'Un code secret de 4 chiffres (de 1 à 6) est caché. Propose un code : ● = bon chiffre à la bonne place, ○ = bon chiffre mal placé. Déduis-le en un minimum d’essais.',
-  rules: ['● bien placé · ○ présent mais mal placé', 'Niveau 1 : chiffres tous différents · ensuite, les répétitions sont possibles', 'Points = 9 − nombre d’essais (0 si le code n’est pas trouvé en 8)'],
-  variants: [{ id: '300', label: '5 min', time: 300 }, { id: '180', label: '3 min', time: 180 }],
-  def: '300', unit: 'points',
-  perf: (s, v) => s / (v === '180' ? 9 : 15) * 100,
+  rules: [
+    '● bien placé · ○ présent mais mal placé', 'Points = 9 − nombre d’essais (0 si le code n’est pas trouvé en 8)',
+    'Facile : chaque chiffre est marqué (anneau vert = bien placé, ambre = mal placé, grisé = absent), chiffres tous différents',
+    'Moyen : mêmes anneaux, mais les chiffres peuvent se répéter · Difficile : seulement ● et ○, sans savoir lesquels',
+    'Réflexion : comme Difficile, sans chrono, tape FIN pour terminer'
+  ],
+  variants: [
+    { id: 'easy', label: 'Facile', time: 300, w: 0.7, note: '5 min · chaque chiffre est marqué, sans répétition' },
+    { id: 'mid', label: 'Moyen', time: 300, w: 0.9, note: '5 min · chaque chiffre est marqué, répétitions possibles' },
+    { id: '300', label: 'Difficile', time: 300, note: '5 min · ● ○ seulement, sans savoir lesquels' },
+    { id: 'free', label: 'Réflexion', time: null, free: true, w: 0.9, note: 'Sans chrono · ● ○ seulement, tape FIN pour terminer' },
+    { id: '180', label: '3 min', time: 180, hide: true }
+  ],
+  def: 'easy', unit: 'points',
+  perf: (s, v) => s / ({ '180': 9, easy: 18, mid: 16, free: 12 }[v] || 15) * 100,
   start(ctx) {
+    const marked = ctx.v.id === 'easy' || ctx.v.id === 'mid';
     let pts = 0, solved = 0, failed = 0, code, tries, guess, busy = false;
     const att = [];
     ctx.el.innerHTML = `<div class="cb">
@@ -33,14 +53,14 @@ A.register({
     const peg = (d, cls = '') => `<span class="cb-p ${d ? 'd' + d : 'empty'} ${cls}">${d || ''}</span>`;
     const drawCur = () => { $('.cb-cur').innerHTML = [0, 1, 2, 3].map(i => peg(guess[i], i === guess.length ? 'next' : '')).join(''); };
     const newCode = () => {
-      const rep = solved >= 1;
+      const rep = ctx.v.id === 'easy' ? false : ctx.v.id === 'mid' || ctx.v.id === 'free' || solved >= 1;
       code = rep ? Array.from({ length: LEN }, () => A.rand(1, 6)) : A.shuffle([1, 2, 3, 4, 5, 6]).slice(0, LEN);
       tries = []; guess = []; busy = false;
       $('.cb-h').textContent = `CODE #${solved + failed + 1} · ${rep ? 'RÉPÉTITIONS POSSIBLES' : 'CHIFFRES DIFFÉRENTS'}`;
       $('.cb-rows').innerHTML = '';
       drawCur();
     };
-    const row = (g, fb) => `<div class="cb-row"><span class="cb-n">${tries.length}</span><span class="cb-g">${g.map(d => peg(d)).join('')}</span>
+    const row = (g, fb) => `<div class="cb-row"><span class="cb-n">${tries.length}</span><span class="cb-g">${marked ? pegFb(code, g).map((f, i) => peg(g[i], 'f' + f)).join('') : g.map(d => peg(d)).join('')}</span>
       <span class="cb-fb">${'<i class="ex"></i>'.repeat(fb.exact)}${'<i class="mi"></i>'.repeat(fb.mis)}${'<i></i>'.repeat(LEN - fb.exact - fb.mis)}</span></div>`;
     const reveal = (won) => {
       busy = true;

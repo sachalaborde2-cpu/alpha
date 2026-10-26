@@ -14,11 +14,14 @@ En ligne sur https://alpha-sacha.netlify.app. Chaque `git push` sur `main` est d
 - `netlify/functions/api.mjs` : l'API `/api/*` (fonction Netlify)
 - `netlify/lib/alpha-api.mjs` : la logique de l'API (profils, amis, classement), stockée dans Netlify Blobs
 
+- `tools/` : `check.sh` (tests automatiques, ~3 s), `shot.sh` (captures d'écran en une planche), `gen-exit-bank.sh` (banque de puzzles). Détails dans `CLAUDE.md`, qui est la référence de dev (contrat des jeux, pièges, chantier en cours).
+
 ## Publier une nouvelle version
 
 1. Changer le numéro de version dans `public/js/core.js` (`A.VERSION`) **et** dans `public/sw.js` (`VERSION`).
 2. Ajouter une entrée en tête de `A.CHANGELOG` (`public/js/core.js`).
-3. Puis :
+3. Lancer `tools/check.sh` : il doit afficher `RÉSULTAT : N/N OK`.
+4. Puis :
    ```bash
    git add .
    git commit -m "Version x.y.z : …"

@@ -39,12 +39,12 @@ function planFor(day) {
   const rnd = A.seeded(A.hash('alpha' + day));
   const pick = arr => arr[Math.floor(rnd() * arr.length)];
   return [
-    { g: 'calc', v: '120', slot: 'OUVERTURE' },
-    Object.assign(pick([{ g: 'arb', v: '60' }, { g: 'switch', v: '60' }, { g: 'stroop', v: '60' }]), { slot: 'RÉFLEXES' }),
-    Object.assign(pick([{ g: 'seq', v: '180' }, { g: 'riddle', v: '240' }, { g: 'code', v: '180' }]), { slot: 'LOGIQUE' }),
-    { g: 'exit', v: '300', slot: 'STRATÉGIE' },
-    Object.assign(pick([{ g: 'nback', v: '3' }, { g: 'span', v: 'spatial' }, { g: 'span', v: 'digits' }, { g: 'book', v: '180' }]), { slot: 'MÉMOIRE' }),
-    Object.assign(pick([{ g: 'proba', v: '180' }, { g: 'g24', v: '180' }, { g: 'optiver', v: '40' }, { g: 'fair', v: '180' }, { g: 'pnl', v: '180' }]), { slot: 'CLÔTURE' })
+    { g: 'calc', v: 'mid', slot: 'OUVERTURE' },
+    Object.assign(pick([{ g: 'arb', v: 'mid' }, { g: 'switch', v: '60' }, { g: 'stroop', v: '60' }]), { slot: 'RÉFLEXES' }),
+    Object.assign(pick([{ g: 'seq', v: 'mid' }, { g: 'riddle', v: 'mid' }, { g: 'code', v: 'easy' }]), { slot: 'LOGIQUE' }),
+    { g: 'exit', v: 'mid', slot: 'STRATÉGIE' },
+    Object.assign(pick([{ g: 'nback', v: 'mid' }, { g: 'span', v: 'mid' }, { g: 'span', v: 'dfwd' }, { g: 'book', v: 'mid' }]), { slot: 'MÉMOIRE' }),
+    Object.assign(pick([{ g: 'proba', v: 'mid' }, { g: 'g24', v: 'mid' }, { g: 'optiver', v: 'mid' }, { g: 'fair', v: 'mid' }, { g: 'pnl', v: 'mid' }]), { slot: 'CLÔTURE' })
   ];
 }
 function daily(day = A.dayKey()) {
@@ -186,7 +186,8 @@ function openIntro(gid, opts) {
       <div class="intro-code">${ch ? `⚔ DÉFI · ${ch.players.length} JOUEURS · MÊMES QUESTIONS` : isDaily ? `ÉPREUVE ${opts.daily + 1}/6 · ${daily().plan[opts.daily].slot}` : `${A.CATS[g.cat].code} · ${g.code}`}</div>
       <div class="h-title">${g.name}</div>
       <div class="h-sub">${g.desc}</div>
-      ${!isDaily && !ch && g.variants.length > 1 ? `<div class="seg" style="margin-bottom:12px">${g.variants.map(x => `<button data-v="${x.id}" class="${x.id === vid ? 'on' : ''}">${x.label}</button>`).join('')}</div>` : ''}
+      ${!isDaily && !ch && g.variants.length > 1 ? `<div class="seg" style="margin-bottom:${v.note ? 6 : 12}px">${g.variants.filter(x => !x.hide || x.id === vid || A.sessionsOf(gid, x.id).length).map(x => `<button data-v="${x.id}" class="${x.id === vid ? 'on' : ''}">${x.label}</button>`).join('')}</div>` : ''}
+      ${v.note ? `<div class="muted" style="font-size:12px;margin-bottom:12px">${v.note}</div>` : ''}
       <div class="stats-grid">
         <div class="stat"><div class="label">Record</div><div class="v">${best != null ? best : '—'}</div></div>
         <div class="stat"><div class="label">Moy. 5</div><div class="v">${last5.length ? A.fmt(A.avg(last5), 1) : '—'}</div></div>
@@ -196,7 +197,7 @@ function openIntro(gid, opts) {
       <div class="card"><div class="label">Règles</div><ul class="rules">${g.rules.map(r => `<li>${r}</li>`).join('')}</ul></div>
       <div style="height:80px"></div>
     `, false);
-    el.appendChild(A.h(`<div class="bottom-cta"><button class="btn primary" data-play>Lancer · ${v.label} ▸</button></div>`));
+    el.appendChild(A.h(`<div class="bottom-cta"><button class="btn primary" data-play>Lancer · ${v.label}${v.time ? ' · ' + (v.time >= 60 ? Math.round(v.time / 6) / 10 + ' min' : v.time + ' s') : ''} ▸</button></div>`));
     mount(el, false);
     if (ss.length >= 2) {
       const pts = ss.slice(-30).map(s => ({ y: s.score, label: A.shortDate(s.day) }));
@@ -219,6 +220,7 @@ function runGame(gid, vid, opts) {
       <span class="code">${g.code}</span><span class="sp"></span>
       <span class="score">${g.scoreLabel || 'SCORE'}<b>0</b></span>
       <span class="time">${v.time ? A.mmss(v.time) : '0:00'}</span>
+      ${v.free ? '<button class="icon-btn" data-end style="width:auto;padding:0 10px;font-size:12px;font-weight:700;letter-spacing:.06em">FIN</button>' : ''}
       <button class="icon-btn" data-p>${I.pause}</button>
     </div>
     <div class="tbar"><i></i></div>
@@ -284,6 +286,8 @@ function runGame(gid, vid, opts) {
     else { paused = wasPaused; last = null; }
   });
   root.querySelector('[data-p]').addEventListener('click', pause);
+  const endBtn = root.querySelector('[data-end]'); // mode Réflexion (sans chrono) : on termine quand on veut
+  if (endBtn) endBtn.addEventListener('click', () => { if (running && !paused && inst) finish(inst.finish()); });
 
   function finish(res) {
     if (ended) return;
@@ -495,7 +499,7 @@ function renderStats() {
   const fullDays = Object.values(A.db.daily).filter(d => Object.keys(d.done).length === 6).length;
   const cmp = A.CAT_ORDER.map(c => A.catAt(m, c, 30));
   // latence calcul (5 dernières parties ZMAC standard)
-  const zm = ss.filter(s => s.g === 'calc' && s.v === '120' && s.x && s.x.lat).slice(-5);
+  const zm = ss.filter(s => s.g === 'calc' && s.x && s.x.lat).slice(-5);
   const lat = [0, 1, 2, 3].map(i => A.avg(zm.map(s => s.x.lat[i]).filter(x => x != null)));
   const sw = ss.filter(s => s.g === 'switch' && s.x && s.x.cost != null).slice(-5);
   const arbRt = ss.filter(s => s.g === 'arb' && s.x && s.x.rt).slice(-5);

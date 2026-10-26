@@ -57,17 +57,27 @@ A.register({
   id: 'seq', cat: 'logi', code: 'SUITE', name: 'Suites logiques',
   short: 'Trouve le terme suivant',
   desc: 'Arithmétiques, géométriques, alternées, entrelacées, récurrentes… Trouve la logique et le terme suivant. La difficulté monte toutes les 3 bonnes réponses.',
-  rules: ['La réponse est validée dès qu’elle est juste', 'PASSER révèle la réponse (pas de pénalité, mais pas de point)', 'Pense aux différences, aux rapports, aux carrés et à l’entrelacement'],
-  variants: [{ id: '180', label: '3 min', time: 180 }, { id: '300', label: '5 min', time: 300 }],
-  def: '180', unit: 'trouvées',
-  perf: (s, v) => s / (v === '300' ? 22 : 14) * 100,
+  rules: [
+    'Facile : suites simples (+, −, ×) · Moyen : alternées et carrés · Difficile : jusqu’au niveau 5 · Réflexion : sans chrono, tape FIN',
+    'La réponse est validée dès qu’elle est juste', 'PASSER révèle la réponse (pas de pénalité, mais pas de point)', 'Pense aux différences, aux rapports, aux carrés et à l’entrelacement'],
+  variants: [
+    { id: 'easy', label: 'Facile', time: 180, w: 0.7, note: '3 min · niveaux 1 à 2, montée lente' },
+    { id: 'mid', label: 'Moyen', time: 180, w: 0.9, note: '3 min · niveaux 2 à 3' },
+    { id: '180', label: 'Difficile', time: 180, note: '3 min · du niveau 3 au niveau 5' },
+    { id: 'free', label: 'Réflexion', time: null, free: true, w: 0.9, note: 'Sans chrono · niveaux 3 à 5, tape FIN pour terminer' },
+    { id: '300', label: '5 min', time: 300, hide: true }
+  ],
+  def: 'easy', unit: 'trouvées',
+  perf: (s, v) => s / ({ '300': 22, easy: 12, mid: 12, free: 10 }[v] || 14) * 100,
   start(ctx) {
-    const start = A.level('seq', 1);
+    // chaque niveau a sa plage fixe : le niveau d'une partie n'est jamais hérité d'une autre
+    const CFG = { easy: { start: 1, cap: 2, step: 4 }, mid: { start: 2, cap: 3, step: 4 }, free: { start: 3, cap: 5, step: 2 } }[ctx.v.id] || { start: 3, cap: 5, step: 3 };
+    const start = CFG.start;
     let ok = 0, skip = 0, cur, input = '', busy = false, lvMax = start, t0 = 0;
     const times = [];
     ctx.el.innerHTML = `<div class="qbox"><div class="hint lvl"></div><div class="seq-row"></div><div class="ans mono"></div></div>`;
     const row = ctx.el.querySelector('.seq-row'), ansEl = ctx.el.querySelector('.ans'), lvl = ctx.el.querySelector('.lvl');
-    const level = () => Math.min(5, start + Math.floor(ok / 3));
+    const level = () => Math.min(CFG.cap, start + Math.floor(ok / CFG.step));
     const next = () => {
       cur = gen(level()); input = ''; busy = false; t0 = ctx.now();
       lvMax = Math.max(lvMax, level());
@@ -99,8 +109,7 @@ A.register({
     return {
       finish: () => ({
         score: ok,
-        stats: [['Trouvées', ok], ['Passées', skip], ['Niveau max', lvMax], ['Temps moyen', times.length ? A.fmt(A.avg(times), 1) + ' s' : '—']],
-        level: A.clamp(ok >= 10 ? start + 1 : ok < 4 ? start - 1 : start, 1, 5)
+        stats: [['Trouvées', ok], ['Passées', skip], ['Niveau max', lvMax], ['Temps moyen', times.length ? A.fmt(A.avg(times), 1) + ' s' : '—']]
       })
     };
   }

@@ -56,21 +56,41 @@ const GENS = [
   }
 ];
 
+// niveaux plus doux : petites quantités, prix entiers, pourcentages ronds
+const EASY = [
+  () => { const q = A.pick([10, 20, 50, 100]), p1 = R(10, 90); let m; do { m = R(-8, 8); } while (!m); return { t: 'P&L · ACHAT', q: `Achat de ${q} actions à ${eur(p1)}, revente à ${eur(p1 + m)}. P&L ?`, ans: q * m, e: `${q} × (${p1 + m} − ${p1}) = ${eur(q * m)}` }; },
+  () => { const q = A.pick([10, 20, 50, 100]), p1 = R(10, 90); let m; do { m = R(-8, 8); } while (!m); return { t: 'P&L · VENTE À DÉCOUVERT', q: `Vente à découvert de ${q} actions à ${eur(p1)}, rachat à ${eur(p1 + m)}. P&L ?`, ans: -q * m, e: `À découvert on gagne quand ça baisse : ${q} × (${p1} − ${p1 + m}) = ${eur(-q * m)}` }; },
+  () => { const p1 = A.pick([20, 50, 100, 200]), pct = A.pick([-50, -25, -20, -10, 10, 20, 25, 50]); return { t: 'RENDEMENT', q: `Achat à ${eur(p1)}, revente à ${eur(p1 * (1 + pct / 100))}. Rendement en % ?`, ans: pct, e: `(${f(p1 * (1 + pct / 100))} − ${p1}) / ${p1} = ${f(pct)} %` }; },
+  () => { const q = A.pick([10, 20, 50, 100]), p = R(2, 50); return { t: 'VALEUR DE POSITION', q: `${q} actions à ${eur(p)}. Valeur de la position ?`, ans: q * p, e: `${q} × ${p} = ${eur(q * p)}` }; },
+  () => { const L = A.pick([2, 3]), x = A.pick([-5, -4, -3, -2, -1, 1, 2, 3, 4, 5]); return { t: 'LEVIER', q: `Position à levier ×${L}. Le sous-jacent fait ${x > 0 ? '+' : '−'}${Math.abs(x)} %. Ta performance en % ?`, ans: L * x, e: `${L} × ${x} % = ${L * x} %` }; },
+  () => { const p = A.pick([50, 100, 200]), y = A.pick([1, 2, 4, 5]); return { t: 'DIVIDENDE', q: `Action à ${eur(p)}, dividende annuel de ${eur(p * y / 100)}. Rendement en % ?`, ans: y, e: `${f(p * y / 100)} / ${p} = ${y} %` }; }
+];
+const MID = EASY.concat([GENS[0], GENS[1], GENS[2], GENS[4], GENS[6], GENS[8], GENS[9]]);
+const POOL = { easy: EASY, mid: MID };
+
 A.register({
   id: 'pnl', cat: 'calc', code: 'P&L', name: 'P&L Express',
   short: 'Calcul mental façon desk',
   desc: 'P&L de positions, rendements, prix moyen, levier, change, dividendes : le calcul mental qu’on te demande vraiment sur un desk.',
-  rules: ['Réponse validée dès qu’elle est juste à 0,01 près', '± pour une perte, virgule sur le pavé', 'PASSER affiche le calcul détaillé'],
-  variants: [{ id: '180', label: '3 min', time: 180 }, { id: '300', label: '5 min', time: 300 }],
-  def: '180', unit: 'calculs',
-  perf: (s, v) => s / (v === '300' ? 22 : 14) * 100,
+  rules: [
+    'Réponse validée dès qu’elle est juste à 0,01 près', '± pour une perte, virgule sur le pavé', 'PASSER affiche le calcul détaillé',
+    'Facile : petites quantités, prix entiers · Moyen : un peu de tout · Difficile : prix moyen, composés, retour à zéro…'
+  ],
+  variants: [
+    { id: 'easy', label: 'Facile', time: 180, w: 0.7, note: '3 min · chiffres ronds, calculs simples' },
+    { id: 'mid', label: 'Moyen', time: 180, w: 0.9, note: '3 min · levier, change, rendements' },
+    { id: '180', label: 'Difficile', time: 180, note: '3 min · tout le programme' },
+    { id: '300', label: '5 min', time: 300, hide: true }
+  ],
+  def: 'easy', unit: 'calculs',
+  perf: (s, v) => s / ({ '300': 22, easy: 18, mid: 16 }[v] || 14) * 100,
   start(ctx) {
     let ok = 0, skip = 0, cur, input = '', busy = false, t0 = 0;
     const times = [];
     ctx.el.innerHTML = `<div class="qbox fv"><div class="hint fv-t"></div><div class="pb-q fv-q"></div><div class="ans mono"></div><div class="fv-e"></div></div>`;
     const $ = s => ctx.el.querySelector(s);
     const next = () => {
-      let n; do { n = A.pick(GENS)(); } while (cur && n.t === cur.t);
+      let n; do { n = A.pick(POOL[ctx.v.id] || GENS)(); } while (cur && n.t === cur.t);
       cur = n; input = ''; busy = false; t0 = ctx.now();
       $('.fv-t').textContent = cur.t; $('.fv-q').textContent = cur.q;
       $('.ans').textContent = ''; $('.ans').classList.remove('reveal'); $('.fv-e').innerHTML = '';

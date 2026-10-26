@@ -425,3 +425,8 @@ textarea { width: 100%; min-height: 110px; background: var(--panel2); color: var
 .ch-g.on { border-color: var(--amber); background: var(--amber-dim); }
 .ch-friends { display: flex; flex-wrap: wrap; gap: 8px; }
 .ch-friends .chip { font-size: 13px; padding: 8px 12px; }
+
+/* niveaux : indices par chiffre (Code Breaker Facile/Moyen) et mode Réflexion */
+.cb-p.fx { box-shadow: 0 0 0 3px var(--up); }
+.cb-p.fm { box-shadow: 0 0 0 3px var(--amber); }
+.cb-p.f { opacity: .35; }

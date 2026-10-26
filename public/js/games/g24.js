@@ -5,7 +5,8 @@ const F = A.F;
 const SYM = { '+': '+', '-': '−', '*': '×', '/': '÷' };
 
 // Solveur exhaustif (flottants) : renvoie une expression ou null
-function solve(items) {
+// ints : refuse les étapes négatives ou fractionnaires (solutions « propres », pour les niveaux doux)
+function solve(items, ints) {
   if (items.length === 1) return Math.abs(items[0].v - 24) < 1e-9 ? items[0].e : null;
   for (let i = 0; i < items.length; i++) for (let j = 0; j < items.length; j++) {
     if (i === j) continue;
@@ -14,16 +15,19 @@ function solve(items) {
     const cands = [{ v: a.v - b.v, e: `(${a.e} − ${b.e})` }];
     if (Math.abs(b.v) > 1e-12) cands.push({ v: a.v / b.v, e: `(${a.e} ÷ ${b.e})` });
     if (i < j) cands.push({ v: a.v + b.v, e: `(${a.e} + ${b.e})` }, { v: a.v * b.v, e: `(${a.e} × ${b.e})` }); // commutatifs : une seule fois
-    for (const c of cands) { const r = solve(rest.concat([c])); if (r) return r; }
+    for (const c of cands) {
+      if (ints && (c.v < 0 || Math.abs(c.v - Math.round(c.v)) > 1e-9)) continue;
+      const r = solve(rest.concat([c]), ints); if (r) return r;
+    }
   }
   return null;
 }
 const clean = e => e.replace(/^\((.*)\)$/, '$1');
 
-function gen(max) {
+function gen(max, ints) {
   for (;;) {
     const ns = [0, 0, 0, 0].map(() => A.rand(1, max));
-    const s = solve(ns.map(n => ({ v: n, e: String(n) })));
+    const s = solve(ns.map(n => ({ v: n, e: String(n) })), ints);
     if (s) return { ns, sol: clean(s) };
   }
 }
@@ -32,10 +36,21 @@ A.register({
   id: 'g24', cat: 'calc', code: '24', name: 'Le 24',
   short: 'Le casse-tête favori des trading firms',
   desc: 'Combine les 4 nombres avec + − × ÷ pour obtenir exactement 24. Chaque nombre sert une fois. Les fractions intermédiaires sont permises.',
-  rules: ['Touche un nombre, un opérateur, puis un second nombre', '↶ annule le dernier calcul, PASSER montre une solution', 'Les premiers tirages vont de 1 à 9, puis de 1 à 13'],
-  variants: [{ id: '180', label: '3 min', time: 180 }, { id: '300', label: '5 min', time: 300 }],
-  def: '180', unit: 'résolus',
-  perf: (s, v) => s / (v === '300' ? 18 : 11) * 100,
+  rules: [
+    'Touche un nombre, un opérateur, puis un second nombre',
+    '↶ annule le dernier calcul, PASSER montre une solution (sans pénalité)',
+    'Facile : nombres de 1 à 6, solution toujours en nombres entiers · Moyen : 1 à 9, entiers',
+    'Difficile : jusqu’à 13, fractions possibles · Réflexion : sans chrono, tape FIN quand tu veux'
+  ],
+  variants: [
+    { id: 'easy', label: 'Facile', time: 180, w: 0.7, note: '3 min · nombres de 1 à 6, étapes entières' },
+    { id: 'mid', label: 'Moyen', time: 180, w: 0.9, note: '3 min · nombres de 1 à 9, étapes entières' },
+    { id: '180', label: 'Difficile', time: 180, note: '3 min · jusqu’à 13, fractions possibles' },
+    { id: 'free', label: 'Réflexion', time: null, free: true, w: 0.9, note: 'Sans chrono · prends le temps, tape FIN pour terminer' },
+    { id: '300', label: '5 min', time: 300, hide: true }
+  ],
+  def: 'easy', unit: 'résolus',
+  perf: (s, v) => s / ({ '300': 18, easy: 14, mid: 12, free: 8 }[v] || 11) * 100,
   start(ctx) {
     let solved = 0, skipped = 0, cur, cards, hist, sel = null, op = null, busy = false, t0 = 0;
     const times = [];
@@ -53,7 +68,8 @@ A.register({
       ctx.el.querySelectorAll('.g24-op').forEach(b => b.classList.toggle('sel', b.dataset.o === op));
     };
     const next = () => {
-      cur = gen(solved < 4 ? 9 : 13);
+      const id = ctx.v.id;
+      cur = id === 'easy' ? gen(6, true) : id === 'mid' ? gen(9, true) : gen(solved < 4 && id !== 'free' ? 9 : 13);
       cards = cur.ns.map(n => F.make(n)); hist = []; sel = null; op = null; busy = false; t0 = ctx.now();
       solEl.textContent = '';
       render();

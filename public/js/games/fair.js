@@ -22,6 +22,14 @@ const COND = [
 
 const GENS = [
   { lv: 1, f: () => {
+    const m = A.pick([2, 3, 4, 10]), c = A.pick([0, 1, 2, 5]);
+    return { t: 'UN DÉ', q: `Tu gagnes ${m} × le résultat d’un dé${c ? ` + ${c} €` : ''} (en €). Juste prix du jeu ?`, vis: die(null), ans: m * 3.5 + c, e: `${m} × 3,5${c ? ` + ${c}` : ''} = ${n2(m * 3.5 + c)}` };
+  } },
+  { lv: 1, f: () => {
+    const [txt, k] = A.pick([['est pair', 3], ['est impair', 3], ['est au moins 5', 2], ['est un 6', 1], ['est au plus 2', 2]]), G = A.pick([6, 12, 18, 30]);
+    return { t: 'UN DÉ · PARI', q: `Tu gagnes ${G} € si le dé ${txt}, sinon 0. Juste prix du jeu ?`, vis: die(null), ans: G * k / 6, e: `${k} chances sur 6 : ${G} × ${k}/6 = ${n2(G * k / 6)}` };
+  } },
+  { lv: 1, f: () => {
     const n = R(3, 5), k = R(1, n - 1), d = Array.from({ length: k }, () => R(1, 6)), s = sum(d);
     return { t: 'SOMME DE DÉS', q: `Tu gagnes la somme de ${n} dés (en €). Déjà sortis :`, vis: d.map(die).join('') + die(null).repeat(n - k), ans: s + 3.5 * (n - k), e: `${s} déjà acquis + ${n - k} × 3,5 = ${n2(s + 3.5 * (n - k))}` };
   } },
@@ -60,16 +68,25 @@ A.register({
   id: 'fair', cat: 'quant', code: 'FAIR', name: 'Fair Value',
   short: 'Donne le juste prix, l’info arrive',
   desc: 'Des dés, des cartes, des pièces… une partie est déjà révélée. Donne le juste prix du jeu (son espérance). C’est le réflexe de base du market making.',
-  rules: ['Réponse validée dès qu’elle est juste à 0,01 près', 'La virgule est sur le pavé · PASSER affiche le calcul', 'Linéarité de l’espérance, cartes sans remise, conditionnement'],
-  variants: [{ id: '180', label: '3 min', time: 180 }, { id: '300', label: '5 min', time: 300 }],
-  def: '180', unit: 'justes prix',
-  perf: (s, v) => s / (v === '300' ? 16 : 10) * 100,
+  rules: [
+    'Réponse validée dès qu’elle est juste à 0,01 près', 'La virgule est sur le pavé · PASSER affiche le calcul',
+    'Facile : un dé, une pièce, sommes simples · Moyen : un peu de cartes et de max · Difficile : conditionnel, produits, cartes'
+  ],
+  variants: [
+    { id: 'easy', label: 'Facile', time: 180, w: 0.7, note: '3 min · dés et pièces, calcul de tête' },
+    { id: 'mid', label: 'Moyen', time: 180, w: 0.9, note: '3 min · montée lente jusqu’au niveau 2' },
+    { id: '180', label: 'Difficile', time: 180, note: '3 min · monte jusqu’au niveau 3' },
+    { id: '300', label: '5 min', time: 300, hide: true }
+  ],
+  def: 'easy', unit: 'justes prix',
+  perf: (s, v) => s / ({ '300': 16, easy: 14, mid: 12 }[v] || 10) * 100,
   start(ctx) {
     let ok = 0, skip = 0, cur, input = '', busy = false, t0 = 0;
     const times = [];
     ctx.el.innerHTML = `<div class="qbox fv"><div class="hint fv-t"></div><div class="pb-q fv-q"></div><div class="dice"></div><div class="fv-sub dim"></div><div class="ans mono"></div><div class="fv-e"></div></div>`;
     const $ = s => ctx.el.querySelector(s);
-    const level = () => Math.min(3, 1 + Math.floor(ok / 3));
+    const cap = { easy: 1, mid: 2 }[ctx.v.id] || 3, step = ctx.v.id === 'mid' ? 4 : 3;
+    const level = () => Math.min(cap, 1 + Math.floor(ok / step));
     const next = () => {
       const pool = GENS.filter(g => g.lv <= level());
       const same = pool.filter(x => x.lv === level());

@@ -4,8 +4,17 @@
 const A = window.A = {};
 
 /* ---------- version ---------- */
-A.VERSION = '1.3.0';
+A.VERSION = '1.4.0';
 A.CHANGELOG = [
+  { v: '1.4.0', date: '2026-10-26', items: [
+    'Niveaux Facile / Moyen / Difficile dans presque tous les jeux, Facile par défaut : on s’échauffe, puis on monte',
+    'Chaque niveau a sa propre difficulté fixe : plus d’héritage de ta dernière partie (suites, énigmes, Balle & Trou, Order Flow, Span, Carnet d’ordres)',
+    'Mode Réflexion sans chrono (24, suites, énigmes, Balle & Trou, Code Breaker) : tape FIN quand tu veux',
+    'Code Breaker facile : chaque chiffre est marqué (bien placé / mal placé / absent)',
+    'Probas, Fair Value, Arbitrage, 80 en 8, P&L : questions plus simples, faisables de tête',
+    'Span : plafonds par niveau, et nouveau mode Chiffres dans l’ordre',
+    'Les niveaux faciles pèsent un peu moins dans l’indice Alpha ; tes anciens records restent sur « Difficile »'
+  ] },
   { v: '1.3.0', date: '2026-09-30', items: [
     'Défis ⚔ : lance un défi à tes amis, tout le monde reçoit exactement les mêmes questions',
     'Sauvegarde cloud automatique : récupère tout sur un nouveau téléphone avec ton code ami + ta clé de récupération (Réglages)'
@@ -135,7 +144,9 @@ A.market = () => {
     const g = A.games[s.g];
     if (!g || s.perf == null) continue;
     // perf recalculée avec le barème actuel : un changement de notation s'applique à tout l'historique
-    const perf = A.clamp(g.perf(s.score, s.v, s), 0, 100);
+    // w < 1 : un niveau facile pèse moins dans l'indice (il ne peut pas le tirer au-delà de w × 100)
+    const vr = g.variants.find(x => x.id === s.v);
+    const perf = A.clamp(g.perf(s.score, s.v, s), 0, 100) * ((vr && vr.w) || 1);
     r[g.cat] += A.ALPHA_K * (perf - r[g.cat]);
     ticks.push({ t: s.t, day: s.day, idx: composite(), cats: Object.assign({}, r), s });
   }

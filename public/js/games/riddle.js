@@ -117,17 +117,28 @@ A.register({
   id: 'riddle', cat: 'logi', code: 'ÉNIGME', name: 'Énigmes',
   short: 'Règles cachées façon Math Riddles',
   desc: 'Opérateurs cachés, roues, symboles, fonctions mystères : déduis la règle à partir des exemples et calcule le « ? ».',
-  rules: ['Les exemples suivent tous la même règle cachée', 'Attention aux priorités (× avant +) et aux concaténations', 'La difficulté monte toutes les 3 réussites'],
-  variants: [{ id: '240', label: '4 min', time: 240 }, { id: '420', label: '7 min', time: 420 }],
-  def: '240', unit: 'résolues',
-  perf: (s, v) => s / (v === '420' ? 13 : 8) * 100,
+  rules: [
+    'Les exemples suivent tous la même règle cachée', 'Attention aux priorités (× avant +) et aux concaténations',
+    'Facile : règles du niveau 1 uniquement · Moyen : niveaux 1 à 2 · Difficile : niveaux 2 à 4 · Réflexion : sans chrono, niveaux 3 à 4'
+  ],
+  variants: [
+    { id: 'easy', label: 'Facile', time: 240, w: 0.7, note: '4 min · règles simples, pas de montée' },
+    { id: 'mid', label: 'Moyen', time: 240, w: 0.9, note: '4 min · niveaux 1 à 2' },
+    { id: '240', label: 'Difficile', time: 240, note: '4 min · niveaux 2 à 4' },
+    { id: 'free', label: 'Réflexion', time: null, free: true, w: 0.9, note: 'Sans chrono · énigmes costaudes, tape FIN pour terminer' },
+    { id: '420', label: '7 min', time: 420, hide: true }
+  ],
+  def: 'easy', unit: 'résolues',
+  perf: (s, v) => s / ({ '420': 13, easy: 12, mid: 10, free: 5 }[v] || 8) * 100,
   start(ctx) {
-    const start = A.level('riddle', 1);
+    // plage de niveaux propre à chaque mode : jamais héritée d'une autre partie
+    const CFG = { easy: { start: 1, cap: 1, step: 3 }, mid: { start: 1, cap: 2, step: 3 }, free: { start: 3, cap: 4, step: 2 } }[ctx.v.id] || { start: 2, cap: 4, step: 3 };
+    const start = CFG.start;
     let ok = 0, skip = 0, cur, input = '', busy = false, t0 = 0;
     const times = [];
     ctx.el.innerHTML = `<div class="qbox rd"><div class="hint rd-title"></div><div class="rd-body"></div><div class="ans mono"></div></div>`;
     const body = ctx.el.querySelector('.rd-body'), title = ctx.el.querySelector('.rd-title'), ansEl = ctx.el.querySelector('.ans');
-    const level = () => Math.min(4, start + Math.floor(ok / 3));
+    const level = () => Math.min(CFG.cap, start + Math.floor(ok / CFG.step));
     const next = () => {
       cur = gen(level()); input = ''; busy = false; t0 = ctx.now();
       title.textContent = `${cur.title} · NIV. ${level()}`;
@@ -151,8 +162,7 @@ A.register({
     return {
       finish: () => ({
         score: ok,
-        stats: [['Résolues', ok], ['Passées', skip], ['Temps moyen', times.length ? A.fmt(A.avg(times), 1) + ' s' : '—']],
-        level: A.clamp(ok >= 7 ? start + 1 : ok < 3 ? start - 1 : start, 1, 4)
+        stats: [['Résolues', ok], ['Passées', skip], ['Temps moyen', times.length ? A.fmt(A.avg(times), 1) + ' s' : '—']]
       })
     };
   }

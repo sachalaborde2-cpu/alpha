@@ -8,12 +8,22 @@ A.register({
   id: 'book', cat: 'memo', code: 'BOOK', name: 'Carnet d’ordres',
   short: 'Mémorise les cotations, restitue-les',
   desc: 'Un carnet de cotations s’affiche quelques secondes. Il disparaît, puis on te demande un prix (et plus tard une quantité). Le carnet grossit à chaque réussite.',
-  rules: ['Mémorise, puis touche PRÊT (ou attends la fin du chrono)', 'Réussite = +1 ligne au carnet · échec = −1 ligne', 'Points = taille du carnet réussi · dès 5 lignes, les quantités entrent en jeu'],
-  variants: [{ id: '180', label: '3 min', time: 180 }, { id: '300', label: '5 min', time: 300 }],
-  def: '180', unit: 'points',
-  perf: (s, v) => s / (v === '300' ? 70 : 42) * 100,
+  rules: [
+    'Mémorise, puis touche PRÊT (ou attends la fin du chrono)', 'Réussite = +1 ligne au carnet · échec = −1 ligne', 'Points = taille du carnet réussi · dès 5 lignes, les quantités entrent en jeu',
+    'Facile : 3 à 4 lignes, prix à 2 chiffres, plus de temps · Moyen : jusqu’à 6 lignes · Difficile : jusqu’à 8 lignes'
+  ],
+  variants: [
+    { id: 'easy', label: 'Facile', time: 180, w: 0.7, note: '3 min · 3 à 4 lignes, prix courts, temps allongé' },
+    { id: 'mid', label: 'Moyen', time: 180, w: 0.9, note: '3 min · jusqu’à 6 lignes' },
+    { id: '180', label: 'Difficile', time: 180, note: '3 min · jusqu’à 8 lignes' },
+    { id: '300', label: '5 min', time: 300, hide: true }
+  ],
+  def: 'easy', unit: 'points',
+  perf: (s, v) => s / ({ '300': 70, easy: 30, mid: 36 }[v] || 42) * 100,
   start(ctx) {
-    let K = Math.max(3, A.level('book', 3)), wq = false, best = 0, pts = 0, good = 0, bad = 0, rows, ask, input = '', phase = 'show', round = 0;
+    // taille max du carnet, durée de mémorisation et plage de prix par niveau ; départ toujours à 3 lignes
+    const CFG = { easy: { cap: 4, slow: 1.5, pmax: 99 }, mid: { cap: 6, slow: 1.2, pmax: 999 } }[ctx.v.id] || { cap: 8, slow: 1, pmax: 999 };
+    let K = 3, wq = false, best = 0, pts = 0, good = 0, bad = 0, rows, ask, input = '', phase = 'show', round = 0;
     ctx.el.innerHTML = `<div class="bk"><div class="hint bk-h"></div><div class="bk-bar"><i></i></div><div class="bk-book"></div><div class="bk-q"></div><div class="ans mono bk-ans"></div><div class="bk-kp"></div></div>`;
     const $ = s => ctx.el.querySelector(s);
     const kp = A.keypad({
@@ -33,11 +43,11 @@ A.register({
     const newRound = () => {
       round++; phase = 'show'; input = ''; wq = K >= 5;
       const names = A.shuffle(TICK).slice(0, K);
-      rows = names.map(t => ({ t, p: A.rand(10, 999), q: A.pick([100, 200, 250, 300, 400, 500, 750, 800, 1000, 1200, 1500]) }));
+      rows = names.map(t => ({ t, p: A.rand(10, CFG.pmax), q: A.pick([100, 200, 250, 300, 400, 500, 750, 800, 1000, 1200, 1500]) }));
       $('.bk-h').textContent = `MÉMORISE · ${K} LIGNES`;
       $('.bk-book').innerHTML = table(); $('.bk-book').classList.remove('hidden');
       $('.bk-q').textContent = ''; $('.bk-ans').textContent = ''; $('.bk-ans').classList.remove('reveal');
-      const dur = 900 + K * (wq ? 1500 : 1100);
+      const dur = Math.round((900 + K * (wq ? 1500 : 1100)) * CFG.slow);
       const bar = $('.bk-bar i');
       bar.style.transition = 'none'; bar.style.transform = 'scaleX(1)';
       requestAnimationFrame(() => { bar.style.transition = `transform ${dur}ms linear`; bar.style.transform = 'scaleX(0)'; });
@@ -55,7 +65,7 @@ A.register({
     };
     const verdict = ok => {
       phase = 'wait';
-      if (ok) { pts += K; good++; best = Math.max(best, K); K = Math.min(8, K + 1); ctx.sfx('win'); ctx.flash(true); }
+      if (ok) { pts += K; good++; best = Math.max(best, K); K = Math.min(CFG.cap, K + 1); ctx.sfx('win'); ctx.flash(true); }
       else {
         bad++; K = Math.max(3, K - 1); ctx.sfx('bad'); ctx.flash(false);
         $('.bk-ans').textContent = ask.ans; $('.bk-ans').classList.add('reveal');
@@ -69,7 +79,6 @@ A.register({
       finish: () => ({
         score: pts,
         stats: [['Carnet max réussi', best ? best + ' lignes' : '—'], ['Réussites', good], ['Échecs', bad]],
-        level: Math.max(3, K - 1),
         x: { best }
       })
     };

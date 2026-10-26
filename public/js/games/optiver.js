@@ -21,6 +21,18 @@ const GENS = [
   }
 ];
 
+// niveaux plus doux : petits nombres, pourcentages ronds, demi / quart
+const EASY = [
+  () => { const a = R(11, 29), b = R(2, 5); return { q: `${a} × ${b}`, ans: a * b }; },
+  () => { const n = A.pick([2, 4, 5]), q = R(11, 40); return { q: `${n * q} ÷ ${n}`, ans: q }; },
+  () => { const p = A.pick([10, 20, 25, 50]), b = R(2, 20) * 4; return { q: `${p} % de ${b}`, ans: r4(p * b / 100) }; },
+  () => { const a = R(10, 99) / 10, b = R(10, 99) / 10; return { q: `${f(a)} + ${f(b)}`, ans: r4(a + b) }; },
+  () => { const a = R(50, 99), b = R(11, 49); return { q: `${a} − ${b}`, ans: a - b }; },
+  () => { const d = A.pick([2, 4]), n = R(1, d - 1), k = R(2, 12) * d; return { q: `${n}/${d} × ${k}`, ans: n * k / d }; }
+];
+const MID = EASY.concat([GENS[0], GENS[2], GENS[5], GENS[6], GENS[7], GENS[8]]);
+const POOL = { easy: EASY, mid: MID };
+
 function options(item) {
   if (item.frac) {
     const F = item.frac, pool = [item.naive, A.F.make(F.n + 1, F.d), A.F.make(Math.max(1, F.n - 1), F.d), A.F.make(F.n, F.d + 1), A.F.make(F.n + F.d, F.d * 2)];
@@ -41,10 +53,16 @@ A.register({
   id: 'optiver', cat: 'calc', code: '80EN8', name: '80 en 8',
   short: 'Le test numérique type Optiver',
   desc: 'Calcul mental en QCM sous pression : décimales, fractions, pourcentages. Chaque erreur coûte un point, donc ne tire pas au hasard.',
-  rules: ['Une bonne réponse = +1, une erreur = −1', 'Décimales, fractions, pourcentages, multiplications', 'Astuce : estime l’ordre de grandeur, puis vérifie le dernier chiffre'],
-  variants: [{ id: '40', label: '40 en 4', time: 240, n: 40 }, { id: '80', label: '80 en 8', time: 480, n: 80 }],
-  def: '40', unit: 'points nets',
-  perf: (s, v) => s / (v === '80' ? 60 : 30) * 100,
+  rules: ['Une bonne réponse = +1, une erreur = −1', 'Décimales, fractions, pourcentages, multiplications', 'Facile : petits nombres, pourcentages ronds · Moyen : un peu de tout · Difficile : fractions, décimales × décimales',
+    'Astuce : estime l’ordre de grandeur, puis vérifie le dernier chiffre'],
+  variants: [
+    { id: 'easy', label: 'Facile', time: 180, n: 20, w: 0.7, note: '20 questions en 3 min · petits nombres' },
+    { id: 'mid', label: 'Moyen', time: 300, n: 40, w: 0.9, note: '40 questions en 5 min' },
+    { id: '40', label: 'Difficile', time: 240, n: 40, note: '40 en 4 · tout le programme' },
+    { id: '80', label: '80 en 8', time: 480, n: 80, note: 'Le test complet : 80 en 8 min' }
+  ],
+  def: 'easy', unit: 'points nets',
+  perf: (s, v) => s / ({ easy: 14, mid: 24, '80': 60 }[v] || 30) * 100,
   start(ctx) {
     const N = ctx.v.n;
     let i = 0, good = 0, bad = 0, cur, locked = false;
@@ -52,7 +70,7 @@ A.register({
     const qEl = ctx.el.querySelector('.q'), qn = ctx.el.querySelector('.qn'), oEl = ctx.el.querySelector('.opts');
     const next = () => {
       if (i >= N) return ctx.end(result());
-      const item = A.pick(GENS)();
+      const item = A.pick(POOL[ctx.v.id] || GENS)();
       cur = options(item); locked = false;
       qn.textContent = `QUESTION ${i + 1}/${N}`;
       qEl.textContent = item.q;

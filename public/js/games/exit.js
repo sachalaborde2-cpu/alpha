@@ -127,12 +127,23 @@ A.register({
   id: 'exit', cat: 'logi', code: 'SORTIE', name: 'La Balle & le Trou',
   short: 'Libère le passage, en un minimum de coups',
   desc: 'Fais glisser la balle dans n’importe quelle direction et déplace voitures et bus pour lui ouvrir la route jusqu’au trou. Le trou change de place à chaque niveau. Chaque niveau a une solution optimale connue : vise-la.',
-  rules: ['La balle glisse dans les 4 directions, les véhicules seulement dans leur axe', 'Un glissement (même de plusieurs cases) = 1 coup', 'Points = difficulté × efficacité · bonus ×1,5 si tu trouves l’optimal'],
-  variants: [{ id: '300', label: '5 min', time: 300 }, { id: '180', label: '3 min', time: 180 }],
-  def: '300', unit: 'points',
-  perf: (s, v) => s / (v === '180' ? 45 : 75) * 100,
+  rules: [
+    'La balle glisse dans les 4 directions, les véhicules seulement dans leur axe', 'Un glissement (même de plusieurs cases) = 1 coup', 'Points = difficulté × efficacité · bonus ×1,5 si tu trouves l’optimal',
+    'Facile : puzzles de 3 à 8 coups · Moyen : 6 à 12 · Difficile : jusqu’à 28 · Réflexion : sans chrono, tape FIN'
+  ],
+  variants: [
+    { id: 'easy', label: 'Facile', time: 300, w: 0.7, note: '5 min · puzzles courts (3 à 8 coups), montée lente' },
+    { id: 'mid', label: 'Moyen', time: 300, w: 0.9, note: '5 min · 6 à 12 coups' },
+    { id: '300', label: 'Difficile', time: 300, note: '5 min · de 9 à 28 coups' },
+    { id: 'free', label: 'Réflexion', time: null, free: true, w: 0.9, note: 'Sans chrono · puzzles longs, tape FIN pour terminer' },
+    { id: '180', label: '3 min', time: 180, hide: true }
+  ],
+  def: 'easy', unit: 'points',
+  perf: (s, v) => s / ({ '180': 45, easy: 45, mid: 65, free: 90 }[v] || 75) * 100,
   start(ctx) {
-    let level = A.clamp(A.level('exit2', 0), 0, LEVELS.length - 1), maxLvl = level;
+    // plage de niveaux fixe par mode (jamais héritée d'une partie précédente) ; on monte après `step` réussites propres
+    const CFG = { easy: { start: 0, cap: 1, step: 3 }, mid: { start: 1, cap: 2, step: 3 }, free: { start: 2, cap: 4, step: 2 } }[ctx.v.id] || { start: 2, cap: 4, step: 3 };
+    let level = CFG.start, maxLvl = level, streak = 0;
     let pts = 0, solved = 0, optimal = 0, cur, st, moves, hist, busy = false, cell = 50, goal;
     ctx.el.innerHTML = `<div class="ex">
       <div class="ex-info"><span>COUPS <b class="mv">0</b></span><span>OPTIMAL <b class="op">–</b></span><span>NIV. <b class="lv"></b></span></div>
@@ -258,7 +269,7 @@ A.register({
       pts = A.round(pts + gain, 1); solved++; if (moves === cur.opt) optimal++;
       ctx.score(A.fmt(pts, 0)); ctx.sfx('win'); ctx.flash(true);
       ctx.toast(moves === cur.opt ? `OPTIMAL · +${A.fmt(gain, 1)}` : `+${A.fmt(gain, 1)} · ${moves} coups / ${cur.opt}`);
-      if (moves <= cur.opt + 2) level = Math.min(LEVELS.length - 1, level + 1);
+      if (moves <= cur.opt + 2 && ++streak >= CFG.step) { streak = 0; level = Math.min(CFG.cap, level + 1); }
       maxLvl = Math.max(maxLvl, level);
       ctx.later(load, 700);
     };
@@ -272,16 +283,14 @@ A.register({
       const a = b.dataset.a;
       if (a === 'undo' && hist.length) { st = hist.pop(); moves--; render(); }
       if (a === 'reset') { st = cur.s.slice(); moves = 0; hist = []; render(); }
-      if (a === 'skip') { level = Math.max(0, level - 1); busy = true; ctx.flash(false); ctx.later(load, 200); }
+      if (a === 'skip') { level = Math.max(CFG.start, level - 1); streak = 0; busy = true; ctx.flash(false); ctx.later(load, 200); }
     }));
     size();
     load();
     return {
-      levelKey: 'exit2',
       finish: () => ({
         score: Math.round(pts),
         stats: [['Niveaux résolus', solved], ['Solutions optimales', optimal], ['Niveau max', maxLvl + 1]],
-        level: Math.max(0, maxLvl - 1),
         x: { solved, optimal }
       })
     };

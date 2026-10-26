@@ -22,13 +22,24 @@ A.register({
   id: 'nback', cat: 'memo', code: 'FLUX', name: 'Order Flow',
   short: 'Dual N-back : mémoire de travail',
   desc: 'Des ordres arrivent sur la grille. Signale quand la POSITION et/ou le TICKER sont les mêmes que N ordres plus tôt. N s’adapte à ton niveau entre chaque bloc.',
-  rules: ['POSITION : même case que N ordres avant', 'TICKER : même action que N ordres avant', '≥ 80 % de précision : N monte · < 50 % : N descend'],
-  variants: [{ id: '3', label: '3 blocs', time: null, blocks: 3 }, { id: '2', label: '2 blocs', time: null, blocks: 2 }, { id: '5', label: '5 blocs', time: null, blocks: 5 }],
-  def: '3', unit: 'pts', scoreLabel: 'SCORE',
-  perf: s => s,
+  rules: [
+    'POSITION : même case que N ordres avant', 'TICKER : même action que N ordres avant', '≥ 80 % de précision : N monte (jusqu’au plafond du niveau) · < 50 % : N descend',
+    'Facile : N de 1 à 2 · Moyen : N de 2 à 3 · Difficile : N de 3 à 6'
+  ],
+  variants: [
+    { id: 'easy', label: 'Facile', time: null, blocks: 3, w: 0.7, note: '3 blocs · N de 1 à 2' },
+    { id: 'mid', label: 'Moyen', time: null, blocks: 3, w: 0.9, note: '3 blocs · N de 2 à 3' },
+    { id: '3', label: 'Difficile', time: null, blocks: 3, note: '3 blocs · N de 3 à 6' },
+    { id: '2', label: '2 blocs', time: null, blocks: 2, hide: true },
+    { id: '5', label: '5 blocs', time: null, blocks: 5, hide: true }
+  ],
+  def: 'easy', unit: 'pts', scoreLabel: 'SCORE',
+  perf: (s, v) => s * ({ easy: 2, mid: 4 / 3 }[v] || 1),
   start(ctx) {
     const B = ctx.v.blocks;
-    let n = A.level('nback', 2), b = 0, i = 0, seq, resp, st = { hp: 0, mp: 0, fp: 0, ht: 0, mt: 0, ft: 0 };
+    // N de départ et plafond propres à chaque niveau (jamais hérités d'une autre partie)
+    const CFG = { easy: { start: 1, cap: 2 }, mid: { start: 2, cap: 3 } }[ctx.v.id] || { start: 3, cap: 6 };
+    let n = CFG.start, b = 0, i = 0, seq, resp, st = { hp: 0, mp: 0, fp: 0, ht: 0, mt: 0, ft: 0 };
     const res = [];
     ctx.el.innerHTML = `<div class="nb">
       <div class="nb-top"><span class="nb-n"></span><span class="hint nb-b"></span></div>
@@ -81,7 +92,7 @@ A.register({
       const acc = tot ? hits / tot : 1;
       const perf = A.clamp((n - 1) * 25 + acc * 25, 0, 100);
       res.push({ n, acc, perf });
-      const nn = acc >= 0.8 ? n + 1 : acc < 0.5 ? Math.max(1, n - 1) : n;
+      const nn = acc >= 0.8 ? Math.min(CFG.cap, n + 1) : acc < 0.5 ? Math.max(1, n - 1) : n;
       b++;
       if (b >= B) { n = nn; ctx.end(finish()); return; }
       const ov = A.h(`<div class="overlay">
@@ -100,7 +111,6 @@ A.register({
         score: Math.round(perf),
         stats: [['N max', Math.max(...res.map(r => r.n), 0)], ['N moyen', A.fmt(A.avg(res.map(r => r.n)) || 0, 1)], ['Précision moy.', res.length ? A.fmt(A.avg(res.map(r => r.acc)) * 100, 0) + ' %' : '—'],
           ...res.map((r, k) => [`Bloc ${k + 1}`, `${r.n}-back · ${A.fmt(r.acc * 100, 0)} %`])],
-        level: n,
         x: { blocks: res }
       };
     };

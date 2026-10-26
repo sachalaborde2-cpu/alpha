@@ -28,6 +28,8 @@ Jeux (id → catégorie) : calc, optiver, g24, pnl → calc · seq, riddle, exit
 
 ## Contrat d'un jeu (`A.register({...})`)
 `id, cat, code (ticker affiché), name, short, desc, rules[], variants[{id,label,time|null,...}], def, unit, perf(score, vid) → 0-100, start(ctx)`.
+Champs optionnels d'une variante : `note` (ligne sous le sélecteur), `w` (poids dans l'indice, <1 pour Facile/Moyen, 1 par défaut), `hide:true` (masquée dans le sélecteur tant qu'elle n'a pas d'historique), `free:true` (mode Réflexion sans chrono : le moteur ajoute un bouton FIN qui appelle `finish()`).
+Convention de niveaux : ids `easy` (Facile) · `mid` (Moyen) · id historique = Difficile · `free` (Réflexion) ; `def` = `easy`. Plage de difficulté = constante `CFG` dans `start`, **jamais** lue dans `A.level`.
 `start` renvoie `{ finish() → {score, stats:[[libellé, valeur]], level?, x?}, levelKey? }`.
 `ctx` : `el, v, now()` (horloge de jeu, en pause si l'app passe en arrière-plan), **`later(fn, ms)` (jamais setTimeout dans un jeu)**, `score(n), progress(p), flash(ok), toast(msg), sfx(type), end(result)`.
 Boutons de jeu : `A.tap` (pointerdown). Dans les écrans qui défilent : `click`.
@@ -54,5 +56,28 @@ Boutons de jeu : `A.tap` (pointerdown). Dans les écrans qui défilent : `click`
 - **Chrome headless** : `requestAnimationFrame` bridé → l'horloge de jeu a aussi un `setInterval` de secours. Les harnais accélèrent `setTimeout` pour sauter le compte à rebours.
 - **Séance du jour** : tirée à partir de la date (`planFor`) et stockée dans `A.db.daily[jour]`. Changer les pools modifie les tirages des jours suivants, et le duel entre amis compare par clé `jeu/variante`.
 - **API** : ne pas laisser de profils de test en prod (action `delete`). Clés Blobs : `user/<id>`, `code/<CODE>`. Le jeton n'est stocké que haché.
+- **Niveau adaptatif** : mécanisme `res.level` → `A.db.levels[levelKey || id]` → `A.level()` conservé dans le moteur mais **plus utilisé par aucun jeu depuis la 1.4** (il faisait hériter la difficulté de la dernière partie). Dans une partie le niveau monte au fil des réussites, dans la plage `CFG` du mode choisi.
+- **Variantes = clés d'historique** : `sessions[].v`, `perf`, les records et le duel/défi (`jeu/variante`) reposent sur l'id de variante. Ne jamais renommer ni supprimer un id existant ; ajouter de nouveaux ids et garder les anciens (éventuellement masqués) pour ne pas casser l'historique.
 - **Données** `A.db` : `sessions[{id,g,v,score,perf,dur,t,day,daily,x}]`, `levels`, `daily[jour]{plan,done,teaser}`, `teasers`, `settings`, `social{id,token,code,name,board,...}`, `seenVersion`.
 - Jamais d'API d'IA payante : l'app doit rester gratuite (offres gratuites GitHub + Netlify).
+
+## Niveaux de difficulté (v1.4.0, retours de Sacha du 2026-10-26)
+Constat de départ : trop dur quand on ne connaît pas le jeu ou qu'on n'est pas échauffé ; Sacha veut s'amuser en enchaînant du facile, et parfois réfléchir sans chrono. Principes appliqués : niveaux séparés et explicites (Facile par défaut), plages de difficulté fixes par niveau avec plafonds, montée plus lente, mode Réflexion sans chrono. Le séance du jour (`planFor`) utilise `mid`.
+Indice Alpha : `perf × w` (Facile 0,7 · Moyen 0,9) dans `A.market()` ; la `perf` affichée /100 de la partie n'est pas pondérée.
+
+| Jeu | Niveaux (ids) | Notes |
+|---|---|---|
+| calc | easy, mid, `120`=Difficile (Zetamac), hard=Expert | `LV` : plages des nombres ; easy = 1 min |
+| optiver | easy (20 en 3), mid (40 en 5), `40`, `80` | pools `EASY`/`MID` |
+| g24 | easy (1-6, étapes entières), mid (1-9, entières), `180`, free | `solve(…, ints)` |
+| pnl, proba, fair | easy, mid, `180` | pools de questions faisables de tête ; fair : plafond de niveau 1/2/3 |
+| seq, riddle | easy, mid, difficile (`180`/`240`), free | plage de niveaux fixe (`CFG`), plus d'héritage |
+| exit | easy (niv. 1-2), mid (2-3), `300`, free | montée après 3 réussites propres |
+| code | easy/mid : indice par chiffre (anneaux), `300` classique, free | `pegFb` ; easy sans répétition |
+| nback | easy (N 1-2), mid (N 2-3), `3` (N 3-6) | `CFG.start/cap` |
+| span | easy (grille 3-5), mid (3-7), `spatial`, dfwd (chiffres à l'endroit), `digits` | plafond = fin de partie |
+| book | easy (≤4 lignes, +50 % de temps), mid (≤6), `180` (≤8) | |
+| arb | easy (écarts larges), mid (spread ≤ niv. 3), `60` | |
+| switch, stroop | inchangés (« ça marche ») | |
+
+Pistes restantes : calibrer les barèmes `perf` avec de vraies parties (les constantes des niveaux Facile/Moyen sont des estimations), éventuel mode Réflexion pour d'autres jeux.

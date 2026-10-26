@@ -21,8 +21,26 @@ const PAIRS = [
   { lv: 1, a: 'pow', b: 'pow' }, { lv: 1, a: 'sqrt', b: 'dec2' }, { lv: 2, a: 'sum', b: 'prod2' }, { lv: 2, a: 'pct', b: 'prod' }
 ];
 
-function gen(lv) {
-  const [lo, hi] = GAPS[lv];
+// niveau Facile : écarts larges et cotations simples (petits produits, % ronds, fractions en demis…)
+const EMK = {
+  efrac: () => { const b = R(2, 8), a = R(1, 2 * b - 1); return { s: frac(a, b), v: a / b }; },
+  eprod: () => { const a = R(3, 12), b = R(3, 12); return { s: `${a} × ${b}`, v: a * b }; },
+  epct: () => { const p = A.pick([10, 20, 25, 50, 75]), x = R(2, 20) * 20; return { s: `${p} % de ${x}`, v: p * x / 100 }; },
+  edec: () => { const v = R(5, 190) / 100; return { s: A.num(v), v }; }
+};
+const EGAPS = [[0.25, 0.6], [0.15, 0.4]];
+const EPAIRS = [['eprod', 'eprod'], ['epct', 'epct'], ['efrac', 'edec'], ['efrac', 'efrac']];
+
+function gen(lv, easy) {
+  if (easy) {
+    const [lo, hi] = EGAPS[lv];
+    for (let t = 0; t < 400; t++) {
+      const [a, b] = A.pick(EPAIRS), x = EMK[a](), y = EMK[b]();
+      const gap = Math.abs(x.v - y.v) / Math.max(x.v, y.v);
+      if (gap >= lo && gap <= hi) return Math.random() < 0.5 ? [x, y] : [y, x];
+    }
+  }
+  const [lo, hi] = GAPS[easy ? 0 : lv];
   for (let t = 0; t < 400; t++) {
     const pr = A.pick(PAIRS.filter(p => p.lv <= lv));
     const x = MK[pr.a](), y = MK[pr.b]();
@@ -30,18 +48,27 @@ function gen(lv) {
     if (gap >= lo && gap <= hi) return Math.random() < 0.5 ? [x, y] : [y, x];
   }
   const x = MK.frac(), y = MK.dec();
-  return x.v === y.v ? gen(lv) : [x, y];
+  return x.v === y.v ? gen(lv, easy) : [x, y];
 }
 
 A.register({
   id: 'arb', cat: 'viva', code: 'ARB', name: 'Arbitrage',
   short: 'Repère la valeur la plus haute, vite',
   desc: 'Deux cotations s’affichent : touche la plus élevée. Fractions, puissances, pourcentages, racines… Plus ta série est longue, plus les écarts se resserrent.',
-  rules: ['Bonne réponse +1, erreur −1', 'Série de 4 : le spread se resserre · erreur : il s’élargit', 'Estime, ne calcule pas tout : c’est un jeu de vitesse'],
-  variants: [{ id: '60', label: '1 min', time: 60 }, { id: '120', label: '2 min', time: 120 }],
-  def: '60', unit: 'points nets',
-  perf: (s, v) => s / (v === '120' ? 60 : 30) * 100,
+  rules: [
+    'Bonne réponse +1, erreur −1', 'Série de 4 : le spread se resserre · erreur : il s’élargit', 'Estime, ne calcule pas tout : c’est un jeu de vitesse',
+    'Facile : écarts larges, cotations simples, le spread ne se resserre que d’un cran · Moyen : spread jusqu’au niveau 3 · Difficile : jusqu’au niveau 5'
+  ],
+  variants: [
+    { id: 'easy', label: 'Facile', time: 60, w: 0.7, note: '1 min · écarts larges, calculs simples' },
+    { id: 'mid', label: 'Moyen', time: 60, w: 0.9, note: '1 min · spread jusqu’au niveau 3' },
+    { id: '60', label: 'Difficile', time: 60, note: '1 min · spread jusqu’au niveau 5' },
+    { id: '120', label: '2 min', time: 120, hide: true }
+  ],
+  def: 'easy', unit: 'points nets',
+  perf: (s, v) => s / ({ '120': 60, easy: 24, mid: 28 }[v] || 30) * 100,
   start(ctx) {
+    const easy = ctx.v.id === 'easy', cap = easy ? 1 : ctx.v.id === 'mid' ? 2 : 4;
     let lv = 0, streak = 0, good = 0, bad = 0, lvMax = 0, pair, t0 = 0, busy = false;
     const rts = [];
     ctx.el.innerHTML = `<div class="arb"><div class="hint arb-h">TOUCHE LA PLUS HAUTE</div>
@@ -49,9 +76,9 @@ A.register({
       <div class="arb-spread hint"></div></div>`;
     const cs = [...ctx.el.querySelectorAll('.arb-c')], spEl = ctx.el.querySelector('.arb-spread');
     const next = () => {
-      pair = gen(lv); t0 = ctx.now(); busy = false;
+      pair = gen(lv, easy); t0 = ctx.now(); busy = false;
       cs.forEach((c, i) => { c.innerHTML = pair[i].s; c.classList.remove('good', 'bad'); });
-      spEl.innerHTML = `SPREAD ${'▮'.repeat(5 - lv)}${'▯'.repeat(lv)} · NIV. ${lv + 1}`;
+      spEl.innerHTML = `SPREAD ${'▮'.repeat(5 - lv)}${'▯'.repeat(lv)} · NIV. ${lv + 1}${easy ? '' : '/' + (cap + 1)}`;
     };
     cs.forEach((c, i) => A.tap(c, () => {
       if (busy) return;
@@ -60,7 +87,7 @@ A.register({
       rts.push((ctx.now() - t0) / 1000);
       if (ok) {
         good++; streak++; c.classList.add('good'); ctx.sfx('ok');
-        if (streak % 4 === 0) lv = Math.min(4, lv + 1);
+        if (streak % 4 === 0) lv = Math.min(cap, lv + 1);
       } else {
         bad++; streak = 0; c.classList.add('bad'); cs[1 - i].classList.add('good'); ctx.sfx('bad'); ctx.flash(false);
         lv = Math.max(0, lv - 1);
